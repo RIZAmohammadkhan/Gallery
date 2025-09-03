@@ -208,21 +208,28 @@ export default function GalleryLayout() {
 
   const handleImageDrop = (folderId: string | null, imageId: string) => {
     if (folderId === 'bin') {
-      handleUpdateImage(imageId, { isDefective: true, defectType: 'Manual' });
+      handleUpdateImage(imageId, { isDefective: true, defectType: 'Manual', folderId: null });
       toast({ title: "Image Moved", description: "Image moved to Bin." });
     } else {
       const folder = folders.find(f => f.id === folderId);
       if (folder) {
-        handleUpdateImage(imageId, { folderId });
+        handleUpdateImage(imageId, { folderId, isDefective: false });
         toast({ title: "Image Moved", description: `Image moved to "${folder.name}".` });
+      } else if (folderId === null) {
+        // Dropped on "Uncategorized"
+         handleUpdateImage(imageId, { folderId: null, isDefective: false });
+         toast({ title: "Image Moved", description: `Image moved to "Uncategorized".` });
       }
     }
   };
 
   const displayedImages = useMemo(() => {
-    if (searchResults) {
-        const resultSet = new Set(searchResults);
-        return images.filter(img => resultSet.has(img.id));
+    const sourceImages = searchResults
+      ? images.filter(img => new Set(searchResults).has(img.id))
+      : images;
+      
+    if (searchQuery && searchResults) {
+        return sourceImages;
     }
 
     if (activeView === "bin") {
@@ -238,7 +245,7 @@ export default function GalleryLayout() {
     // Default to 'all'
     return images.filter((img) => !img.isDefective);
 
-  }, [images, activeView, searchResults]);
+  }, [images, activeView, searchResults, searchQuery]);
 
   const selectedImage = useMemo(() => images.find(img => img.id === selectedImageId), [images, selectedImageId]);
 

@@ -23,17 +23,17 @@ export default function AppHeader({ onFileUpload, onSearch, isSearching }: AppHe
       <div className="flex w-full items-center gap-4 md:ml-auto md:gap-2 lg:gap-4">
         <form className="ml-auto flex-1 sm:flex-initial" onSubmit={(e) => e.preventDefault()}>
           <div className="relative">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               type="search"
-              placeholder="Search images by description..."
-              className="pl-8 sm:w-[300px] md:w-[200px] lg:w-[300px] bg-background"
+              placeholder="Search images..."
+              className="pl-10 sm:w-[300px] md:w-[200px] lg:w-[300px] bg-background rounded-full"
               onChange={(e) => onSearch(e.target.value)}
             />
-            {isSearching && <Loader2 className="absolute right-2.5 top-2.5 h-4 w-4 animate-spin text-muted-foreground" />}
+            {isSearching && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />}
           </div>
         </form>
-        <Button asChild>
+        <Button asChild className="rounded-full">
           <label htmlFor="file-upload">
             <UploadCloud className="h-4 w-4 mr-2" />
             Upload
