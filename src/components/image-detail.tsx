@@ -1,0 +1,156 @@
+"use client";
+
+import { useState } from 'react';
+import Image from "next/image";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+  SheetFooter
+} from "@/components/ui/sheet";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { Loader2, Sparkles, FolderSync, Trash2, RotateCcw } from "lucide-react";
+import type { StoredImage, Folder } from "@/lib/types";
+
+interface ImageDetailProps {
+  image: StoredImage;
+  folders: Folder[];
+  onOpenChange: (open: boolean) => void;
+  onCategorize: (imageId: string, folderId: string) => void;
+  onUpdateImage: (imageId: string, updates: Partial<StoredImage>) => void;
+  onDeleteImage: (imageId: string) => void;
+  onEditImage: (imageId: string, prompt: string) => Promise<void>;
+  loadingState: string | boolean | undefined;
+}
+
+export default function ImageDetail({
+  image,
+  folders,
+  onOpenChange,
+  onCategorize,
+  onUpdateImage,
+  onDeleteImage,
+  onEditImage,
+  loadingState
+}: ImageDetailProps) {
+  const [editPrompt, setEditPrompt] = useState('');
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+
+  const handleEdit = async () => {
+    if (!editPrompt.trim()) return;
+    await onEditImage(image.id, editPrompt);
+    setIsEditDialogOpen(false);
+    setEditPrompt('');
+  }
+
+  const isLoading = !!loadingState;
+
+  return (
+    <Sheet open={true} onOpenChange={onOpenChange}>
+      <SheetContent className="sm:max-w-xl w-full flex flex-col">
+        <SheetHeader>
+          <SheetTitle className="truncate">{image.name}</SheetTitle>
+          <SheetDescription>
+            {image.metadata ? `AI: "${image.metadata}"` : "No metadata available."}
+          </SheetDescription>
+          {image.isDefective && <Badge variant="destructive" className="w-fit">{image.defectType}</Badge>}
+        </SheetHeader>
+        <div className="relative flex-1 my-4 rounded-md overflow-hidden">
+          <Image
+            src={image.dataUri}
+            alt={image.name}
+            fill
+            className="object-contain"
+          />
+           {isLoading && (
+            <div className="absolute inset-0 bg-background/80 flex flex-col items-center justify-center text-foreground p-2 text-center">
+              <Loader2 className="animate-spin h-8 w-8 mb-2" />
+              <span className="text-sm font-medium">{typeof loadingState === 'string' ? loadingState : 'Processing...'}</span>
+            </div>
+          )}
+        </div>
+        <SheetFooter className="mt-auto flex-col sm:flex-col sm:space-x-0 gap-2">
+          {!image.isDefective ? (
+            <>
+              <div className="flex gap-2">
+                <Select onValueChange={(folderId) => onUpdateImage(image.id, { folderId })} value={image.folderId ?? ""}>
+                    <SelectTrigger disabled={isLoading}>
+                      <SelectValue placeholder="Categorize..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {folders.map(folder => (
+                        <SelectItem key={folder.id} value={folder.id}>{folder.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                </Select>
+                <Button variant="outline" size="icon" onClick={() => onCategorize(image.id, image.folderId || '')} disabled={isLoading}>
+                    <FolderSync className="h-4 w-4" />
+                    <span className="sr-only">Categorize with AI</span>
+                </Button>
+              </div>
+
+              <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+                <DialogTrigger asChild>
+                    <Button className="w-full" disabled={isLoading}>
+                        <Sparkles className="mr-2 h-4 w-4" /> Edit with AI
+                    </Button>
+                </DialogTrigger>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Edit Image with AI</DialogTitle>
+                        <DialogDescription>Describe the changes you want to make to the image.</DialogDescription>
+                    </DialogHeader>
+                    <Textarea 
+                        placeholder="e.g. make the sky purple, add a cat on the bench..." 
+                        value={editPrompt}
+                        onChange={(e) => setEditPrompt(e.target.value)}
+                        rows={3}
+                    />
+                    <DialogFooter>
+                        <Button onClick={handleEdit} disabled={isLoading}>
+                            {isLoading ? <Loader2 className="animate-spin mr-2" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                            Generate
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+              </Dialog>
+              
+              <Button variant="destructive" className="w-full" onClick={() => onUpdateImage(image.id, { isDefective: true, defectType: 'Manual' })} disabled={isLoading}>
+                <Trash2 className="mr-2 h-4 w-4" /> Move to Bin
+              </Button>
+            </>
+          ) : (
+             <div className="flex gap-2 w-full">
+                <Button variant="outline" className="w-full" onClick={() => onUpdateImage(image.id, { isDefective: false })} disabled={isLoading}>
+                    <RotateCcw className="mr-2 h-4 w-4" /> Restore
+                </Button>
+                <Button variant="destructive" className="w-full" onClick={() => onDeleteImage(image.id)} disabled={isLoading}>
+                    <Trash2 className="mr-2 h-4 w-4" /> Delete Permanently
+                </Button>
+            </div>
+          )}
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
+  );
+}
