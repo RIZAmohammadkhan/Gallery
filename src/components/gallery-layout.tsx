@@ -29,6 +29,7 @@ const initialImages: StoredImage[] = [
     { id: '4', name: 'Forest Path', dataUri: 'https://picsum.photos/id/40/800/1000', metadata: 'A sunlit path winding through a dense green forest.', folderId: 'folder-1', data_ai_hint: 'forest path', width: 800, height: 1000, tags: ['forest', 'path', 'nature'] },
     { id: '5', name: 'Blurry Photo', dataUri: 'https://picsum.photos/id/50/800/600', metadata: 'Abstract lights, out of focus.', isDefective: true, defectType: 'Blurry', data_ai_hint: 'blurry lights', width: 800, height: 600 },
     { id: '6', name: 'Modern Architecture', dataUri: 'https://picsum.photos/id/60/800/700', metadata: 'The sharp geometric lines of a modern building against the sky.', folderId: 'folder-2', data_ai_hint: 'modern architecture', width: 800, height: 700, tags: ['architecture', 'modern', 'building'] },
+    { id: '7', name: 'Uncategorized Photo', dataUri: 'https://picsum.photos/id/70/800/600', metadata: 'A beautiful shot of a beach.', folderId: null, data_ai_hint: 'beach', width: 800, height: 600, tags: ['beach', 'ocean', 'sand'] },
 ];
 
 export default function GalleryLayout() {
@@ -77,7 +78,7 @@ export default function GalleryLayout() {
     
     try {
       const { dataUri, width, height } = await readFileAsDataURI(file);
-      const newImage: StoredImage = { id: imageId, name: file.name, dataUri, width, height };
+      const newImage: StoredImage = { id: imageId, name: file.name, dataUri, width, height, folderId: null };
       setImages((prev) => [newImage, ...prev]);
 
       setLoadingStates((prev) => ({ ...prev, [imageId]: "Analyzing..." }));
@@ -131,7 +132,7 @@ export default function GalleryLayout() {
     setLoadingStates(prev => ({ ...prev, search: true }));
     try {
         const imageMetadata = images
-            .filter(img => !img.isDefective && img.metadata)
+            .filter(img => img.metadata)
             .map(img => ({ filename: img.id, description: `${img.name} ${img.metadata} ${img.tags?.join(' ')}` }));
 
         const res = await searchImages({ query: query.trim(), imageMetadata });
@@ -215,22 +216,24 @@ export default function GalleryLayout() {
   };
 
   const displayedImages = useMemo(() => {
-    let filtered = images;
-
-    if (activeView === "bin") {
-      filtered = images.filter((img) => img.isDefective);
-    } else if (activeView !== "all") {
-      filtered = images.filter((img) => !img.isDefective && img.folderId === activeView);
-    } else {
-      filtered = images.filter((img) => !img.isDefective);
-    }
-
     if (searchResults) {
         const resultSet = new Set(searchResults);
-        filtered = filtered.filter(img => resultSet.has(img.id));
+        return images.filter(img => resultSet.has(img.id));
     }
 
-    return filtered;
+    if (activeView === "bin") {
+      return images.filter((img) => img.isDefective);
+    }
+    if (activeView === "uncategorized") {
+        return images.filter((img) => !img.isDefective && !img.folderId);
+    }
+    if (activeView !== "all") {
+      return images.filter((img) => !img.isDefective && img.folderId === activeView);
+    }
+    
+    // Default to 'all'
+    return images.filter((img) => !img.isDefective);
+
   }, [images, activeView, searchResults]);
 
   const selectedImage = useMemo(() => images.find(img => img.id === selectedImageId), [images, selectedImageId]);

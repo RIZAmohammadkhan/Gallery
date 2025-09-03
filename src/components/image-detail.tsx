@@ -18,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
@@ -106,50 +107,77 @@ export default function ImageDetail({
                         ))}
                       </SelectContent>
                   </Select>
-                  <Button variant="outline" size="icon" onClick={() => onCategorize(image.id)} disabled={isLoading} title="Categorize with AI">
-                      <FolderSync className="h-4 w-4" />
-                      <span className="sr-only">Categorize with AI</span>
-                  </Button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="outline" size="icon" onClick={() => onCategorize(image.id)} disabled={isLoading}>
+                          <FolderSync className="h-4 w-4" />
+                          <span className="sr-only">Categorize with AI</span>
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Categorize with AI</TooltipContent>
+                  </Tooltip>
                 </div>
 
-                <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-                  <DialogTrigger asChild>
-                      <Button className="w-full" variant="outline" disabled={isLoading}>
-                          <Sparkles className="mr-2 h-4 w-4" /> Edit with AI
-                      </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                      <DialogHeader>
-                          <DialogTitle>Edit Image with AI</DialogTitle>
-                          <DialogDescription>Describe the changes you want to make to the image.</DialogDescription>
-                      </DialogHeader>
-                      <Textarea 
-                          placeholder="e.g. make the sky purple, add a cat on the bench..." 
-                          value={editPrompt}
-                          onChange={(e) => setEditPrompt(e.target.value)}
-                          rows={3}
-                      />
-                      <DialogFooter>
-                          <Button onClick={handleEdit} disabled={isLoading}>
-                              {isLoading ? <Loader2 className="animate-spin mr-2" /> : <Sparkles className="mr-2 h-4 w-4" />}
-                              Generate
+                <div className="flex gap-2">
+                    <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+                      <Tooltip>
+                          <TooltipTrigger asChild>
+                              <DialogTrigger asChild>
+                                  <Button className="w-full" variant="outline" disabled={isLoading}>
+                                      <Sparkles className="h-4 w-4" />
+                                  </Button>
+                              </DialogTrigger>
+                          </TooltipTrigger>
+                          <TooltipContent>Edit with AI</TooltipContent>
+                      </Tooltip>
+                      <DialogContent>
+                          <DialogHeader>
+                              <DialogTitle>Edit Image with AI</DialogTitle>
+                              <DialogDescription>Describe the changes you want to make to the image.</DialogDescription>
+                          </DialogHeader>
+                          <Textarea 
+                              placeholder="e.g. make the sky purple, add a cat on the bench..." 
+                              value={editPrompt}
+                              onChange={(e) => setEditPrompt(e.target.value)}
+                              rows={3}
+                          />
+                          <DialogFooter>
+                              <Button onClick={handleEdit} disabled={isLoading}>
+                                  {isLoading ? <Loader2 className="animate-spin mr-2" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                                  Generate
+                              </Button>
+                          </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
+                    
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                          <Button variant="destructive" className="w-full" onClick={() => onUpdateImage(image.id, { isDefective: true, defectType: 'Manual' })} disabled={isLoading}>
+                              <Trash2 className="h-4 w-4" />
                           </Button>
-                      </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-                
-                <Button variant="destructive" className="w-full" onClick={() => onUpdateImage(image.id, { isDefective: true, defectType: 'Manual' })} disabled={isLoading}>
-                  <Trash2 className="mr-2 h-4 w-4" /> Move to Bin
-                </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Move to Bin</TooltipContent>
+                    </Tooltip>
+                </div>
               </>
             ) : (
                <div className="flex gap-2 w-full">
-                  <Button variant="outline" className="w-full" onClick={() => onUpdateImage(image.id, { isDefective: false })} disabled={isLoading}>
-                      <RotateCcw className="mr-2 h-4 w-4" /> Restore
-                  </Button>
-                  <Button variant="destructive" className="w-full" onClick={() => onDeleteImage(image.id)} disabled={isLoading}>
-                      <Trash2 className="mr-2 h-4 w-4" /> Delete Permanently
-                  </Button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="outline" className="w-full" onClick={() => onUpdateImage(image.id, { isDefective: false })} disabled={isLoading}>
+                          <RotateCcw className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Restore</TooltipContent>
+                  </Tooltip>
+                   <Tooltip>
+                      <TooltipTrigger asChild>
+                          <Button variant="destructive" className="w-full" onClick={() => onDeleteImage(image.id)} disabled={isLoading}>
+                              <Trash2 className="h-4 w-4" />
+                          </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Delete Permanently</TooltipContent>
+                    </Tooltip>
               </div>
             )}
           </div>

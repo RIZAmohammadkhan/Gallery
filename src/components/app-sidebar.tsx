@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Folder as FolderIcon, Plus, Trash2, LayoutGrid } from "lucide-react";
+import { Folder as FolderIcon, Plus, Trash2, LayoutGrid, HelpCircle } from "lucide-react";
 import {
   SidebarHeader,
   SidebarContent,
@@ -80,6 +80,16 @@ export default function AppSidebar({ folders, activeView, setActiveView, onCreat
             >
               <LayoutGrid />
               <span>All Images</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+           <SidebarMenuItem>
+            <SidebarMenuButton
+              onClick={() => setActiveView("uncategorized")}
+              isActive={activeView === "uncategorized"}
+              tooltip="Uncategorized"
+            >
+              <HelpCircle />
+              <span>Uncategorized</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
