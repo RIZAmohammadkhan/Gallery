@@ -63,5 +63,5 @@ pids
 # Coverage directory used by tools like istanbul
 coverage/
 
-# Docker
-.dockerignore
+# docker
+.env.docker

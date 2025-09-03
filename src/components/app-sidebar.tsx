@@ -2,7 +2,15 @@
 
 import type { ChangeEvent } from 'react';
 import { useState } from "react";
-import { Folder as FolderIcon, Plus, Trash2, LayoutGrid, HelpCircle, UploadCloud, X } from "lucide-react";
+import { 
+  Folder as FolderIcon, 
+  Plus, 
+  Trash2, 
+  LayoutGrid, 
+  HelpCircle, 
+  UploadCloud, 
+  X
+} from "lucide-react";
 import {
   SidebarHeader,
   SidebarContent,
@@ -85,40 +93,51 @@ export default function AppSidebar({ folders, activeView, setActiveView, onCreat
     setIsDragOver(null);
   };
 
-
   return (
     <>
       <SidebarHeader />
-      <SidebarContent className="p-2">
-        <SidebarMenu>
+      
+      <SidebarContent className="p-3 space-y-4">
+        {/* Main Navigation */}
+        <SidebarMenu className="space-y-1">
           <SidebarMenuItem>
             <SidebarMenuButton
               onClick={() => setActiveView("all")}
               isActive={activeView === "all"}
               tooltip="All Images"
-              className="font-medium"
+              className={cn(
+                "h-11 rounded-xl font-medium transition-all duration-200",
+                activeView === "all" && "shadow-sm"
+              )}
             >
-              <LayoutGrid />
+              <LayoutGrid className="h-4 w-4" />
               <span>All Images</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
-           <SidebarMenuItem>
+          
+          <SidebarMenuItem>
             <SidebarMenuButton
               onClick={() => setActiveView("uncategorized")}
               isActive={activeView === "uncategorized"}
               tooltip="Uncategorized"
-              className="font-medium"
+              className={cn(
+                "h-11 rounded-xl font-medium transition-all duration-200",
+                activeView === "uncategorized" && "shadow-sm"
+              )}
             >
-              <HelpCircle />
+              <HelpCircle className="h-4 w-4" />
               <span>Uncategorized</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
-        <Separator className="my-2" />
-        <SidebarMenu>
+
+        <Separator className="my-4" />
+
+        {/* Folders Section */}
+        <SidebarMenu className="space-y-1">
           {folders.map((folder) => (
             <SidebarMenuItem key={folder.id}>
-              <div className="flex items-center group">
+              <div className="flex items-center group gap-1">
                 <SidebarMenuButton
                   onClick={() => setActiveView(folder.id)}
                   isActive={activeView === folder.id}
@@ -127,13 +146,15 @@ export default function AppSidebar({ folders, activeView, setActiveView, onCreat
                   onDragOver={(e) => handleDragOver(e, folder.id)}
                   onDragLeave={handleDragLeave}
                   className={cn(
-                    "transition-colors flex-1",
-                    isDragOver === folder.id && "bg-accent/50"
+                    "h-11 rounded-xl font-medium transition-all duration-200 flex-1",
+                    activeView === folder.id && "shadow-sm",
+                    isDragOver === folder.id && "bg-accent/50 scale-[1.02] shadow-lg"
                   )}
                 >
-                  <FolderIcon />
-                  <span>{folder.name}</span>
+                  <FolderIcon className="h-4 w-4" />
+                  <span className="truncate">{folder.name}</span>
                 </SidebarMenuButton>
+                
                 <Button
                   variant="ghost"
                   size="sm"
@@ -141,7 +162,7 @@ export default function AppSidebar({ folders, activeView, setActiveView, onCreat
                     e.stopPropagation();
                     handleDeleteClick(folder.id, folder.name);
                   }}
-                  className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive/20 hover:text-destructive"
+                  className="h-9 w-9 p-0 opacity-0 group-hover:opacity-100 transition-all duration-200 hover:bg-destructive/20 hover:text-destructive rounded-xl hover:scale-105"
                 >
                   <X className="h-4 w-4" />
                 </Button>
@@ -149,40 +170,50 @@ export default function AppSidebar({ folders, activeView, setActiveView, onCreat
             </SidebarMenuItem>
           ))}
         </SidebarMenu>
-        <Separator className="my-2" />
-         <SidebarMenu>
+
+        <Separator className="my-4" />
+
+        {/* Bin Section */}
+        <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
               onClick={() => setActiveView("bin")}
               isActive={activeView === "bin"}
               tooltip="Bin"
-              className={cn("text-muted-foreground hover:text-destructive hover:bg-destructive/10", isDragOver === "bin" && "bg-destructive/20")}
+              className={cn(
+                "h-11 rounded-xl font-medium transition-all duration-200",
+                "text-muted-foreground hover:text-destructive hover:bg-destructive/10",
+                activeView === "bin" && "shadow-sm",
+                isDragOver === "bin" && "bg-destructive/20 scale-[1.02] shadow-lg"
+              )}
               onDrop={(e) => handleDrop(e, 'bin')}
               onDragOver={(e) => handleDragOver(e, 'bin')}
               onDragLeave={handleDragLeave}
             >
-              <Trash2 />
+              <Trash2 className="h-4 w-4" />
               <span>Bin</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarContent>
-      <SidebarFooter className="space-y-2">
-        <Button asChild className="w-full">
-            <label htmlFor="file-upload">
-                <UploadCloud className="mr-2 h-4 w-4" />
-                Upload
-                <input id="file-upload" type="file" className="sr-only" onChange={onFileUpload} accept="image/*" />
-            </label>
+
+      <SidebarFooter className="p-3 space-y-3">
+        <Button asChild className="w-full h-11 rounded-xl shadow-sm hover:shadow-md transition-all duration-200 hover:scale-[1.02]">
+          <label htmlFor="file-upload" className="cursor-pointer">
+            <UploadCloud className="mr-2 h-4 w-4" />
+            Upload
+            <input id="file-upload" type="file" className="sr-only" onChange={onFileUpload} accept="image/*" multiple />
+          </label>
         </Button>
+        
         <Dialog open={isNewFolderDialogOpen} onOpenChange={setIsNewFolderDialogOpen}>
           <DialogTrigger asChild>
-            <Button variant="outline" className="w-full">
+            <Button variant="outline" className="w-full h-11 rounded-xl transition-all duration-200 hover:scale-[1.02]">
               <Plus className="mr-2 h-4 w-4" />
               New Folder
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px]">
+          <DialogContent className="sm:max-w-[425px] rounded-2xl">
             <DialogHeader>
               <DialogTitle>Create New Folder</DialogTitle>
               <DialogDescription>
@@ -198,14 +229,16 @@ export default function AppSidebar({ folders, activeView, setActiveView, onCreat
                   id="name"
                   value={newFolderName}
                   onChange={(e) => setNewFolderName(e.target.value)}
-                  className="col-span-3"
+                  className="col-span-3 rounded-xl"
                   autoFocus
                   onKeyPress={(e) => e.key === 'Enter' && handleCreate()}
                 />
               </div>
             </div>
             <DialogFooter>
-              <Button type="submit" onClick={handleCreate}>Create</Button>
+              <Button type="submit" onClick={handleCreate} className="rounded-xl">
+                Create
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
