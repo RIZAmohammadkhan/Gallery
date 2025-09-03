@@ -22,8 +22,8 @@ export default function ImageCard({ image, loadingState, onClick }: ImageCardPro
           <Image
             src={image.dataUri}
             alt={image.name}
-            width={500}
-            height={Math.floor(Math.random() * (800 - 300 + 1)) + 300}
+            width={image.width || 500}
+            height={image.height || 500}
             className="w-full h-auto object-cover transition-transform group-hover:scale-105"
           />
           {loadingState && (
@@ -39,9 +39,10 @@ export default function ImageCard({ image, loadingState, onClick }: ImageCardPro
 }
 
 export function ImageCardSkeleton() {
+    const randomHeight = Math.floor(Math.random() * (450 - 250 + 1)) + 250;
     return (
         <div className="break-inside-avoid mb-4">
-            <Skeleton className="w-full h-[300px]" />
+            <Skeleton className="w-full" style={{ height: `${randomHeight}px` }}/>
         </div>
     )
 }

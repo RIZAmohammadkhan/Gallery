@@ -23,12 +23,12 @@ const initialFolders: Folder[] = [
 ];
 
 const initialImages: StoredImage[] = [
-    { id: '1', name: 'Mountain Lake', dataUri: 'https://picsum.photos/800/600?image=10', metadata: 'A serene mountain lake reflects a clear blue sky.', folderId: 'folder-1', data_ai_hint: 'mountain lake' },
-    { id: '2', name: 'Urban Night', dataUri: 'https://picsum.photos/800/600?image=20', metadata: 'City street at night with light trails from traffic.', folderId: 'folder-2', data_ai_hint: 'city night' },
-    { id: '3', name: 'Smiling Person', dataUri: 'https://picsum.photos/800/600?image=30', metadata: 'A close-up portrait of a person smiling warmly.', folderId: 'folder-3', data_ai_hint: 'person smiling' },
-    { id: '4', name: 'Forest Path', dataUri: 'https://picsum.photos/800/600?image=40', metadata: 'A sunlit path winding through a dense green forest.', folderId: 'folder-1', data_ai_hint: 'forest path' },
-    { id: '5', name: 'Blurry Photo', dataUri: 'https://picsum.photos/800/600?image=50', metadata: 'Abstract lights, out of focus.', isDefective: true, defectType: 'Blurry', data_ai_hint: 'blurry lights' },
-    { id: '6', name: 'Modern Architecture', dataUri: 'https://picsum.photos/800/600?image=60', metadata: 'The sharp geometric lines of a modern building against the sky.', folderId: 'folder-2', data_ai_hint: 'modern architecture' },
+    { id: '1', name: 'Mountain Lake', dataUri: 'https://picsum.photos/id/10/800/600', metadata: 'A serene mountain lake reflects a clear blue sky.', folderId: 'folder-1', data_ai_hint: 'mountain lake', width: 800, height: 600 },
+    { id: '2', name: 'Urban Night', dataUri: 'https://picsum.photos/id/20/800/1200', metadata: 'City street at night with light trails from traffic.', folderId: 'folder-2', data_ai_hint: 'city night', width: 800, height: 1200 },
+    { id: '3', name: 'Smiling Person', dataUri: 'https://picsum.photos/id/30/800/600', metadata: 'A close-up portrait of a person smiling warmly.', folderId: 'folder-3', data_ai_hint: 'person smiling', width: 800, height: 600 },
+    { id: '4', name: 'Forest Path', dataUri: 'https://picsum.photos/id/40/800/1000', metadata: 'A sunlit path winding through a dense green forest.', folderId: 'folder-1', data_ai_hint: 'forest path', width: 800, height: 1000 },
+    { id: '5', name: 'Blurry Photo', dataUri: 'https://picsum.photos/id/50/800/600', metadata: 'Abstract lights, out of focus.', isDefective: true, defectType: 'Blurry', data_ai_hint: 'blurry lights', width: 800, height: 600 },
+    { id: '6', name: 'Modern Architecture', dataUri: 'https://picsum.photos/id/60/800/700', metadata: 'The sharp geometric lines of a modern building against the sky.', folderId: 'folder-2', data_ai_hint: 'modern architecture', width: 800, height: 700 },
 ];
 
 export default function GalleryLayout() {
@@ -48,10 +48,21 @@ export default function GalleryLayout() {
     toast({ title: "Folder Created", description: `Successfully created "${name}".` });
   };
 
-  const readFileAsDataURI = (file: File): Promise<string> => {
+  const readFileAsDataURI = (file: File): Promise<{dataUri: string, width: number, height: number}> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          resolve({
+            dataUri: e.target?.result as string,
+            width: img.width,
+            height: img.height,
+          });
+        };
+        img.onerror = reject;
+        img.src = e.target?.result as string;
+      };
       reader.onerror = reject;
       reader.readAsDataURL(file);
     });
@@ -65,8 +76,8 @@ export default function GalleryLayout() {
     setLoadingStates((prev) => ({ ...prev, [imageId]: "Uploading..." }));
     
     try {
-      const dataUri = await readFileAsDataURI(file);
-      const newImage: StoredImage = { id: imageId, name: file.name, dataUri };
+      const { dataUri, width, height } = await readFileAsDataURI(file);
+      const newImage: StoredImage = { id: imageId, name: file.name, dataUri, width, height };
       setImages((prev) => [newImage, ...prev]);
 
       setLoadingStates((prev) => ({ ...prev, [imageId]: "Analyzing..." }));
@@ -80,7 +91,9 @@ export default function GalleryLayout() {
           img.id === imageId
             ? {
                 ...img,
+                name: metadataRes.title,
                 metadata: metadataRes.metadata,
+                tags: metadataRes.tags,
                 isDefective: defectRes.isDefective,
                 defectType: defectRes.defectType,
               }
@@ -119,11 +132,12 @@ export default function GalleryLayout() {
     try {
         const imageMetadata = images
             .filter(img => !img.isDefective && img.metadata)
-            .map(img => ({ filename: img.id, description: img.metadata! }));
+            .map(img => ({ filename: img.id, description: `${img.name} ${img.metadata} ${img.tags?.join(' ')}` }));
 
         const res = await searchImages({ query: query.trim(), imageMetadata });
         setSearchResults(res.results);
-    } catch (error) {
+    } catch (error)
+        {
         console.error("Search failed:", error);
         toast({ title: "Search Error", description: "Could not perform search.", variant: "destructive" });
         setSearchResults([]);

@@ -22,7 +22,9 @@ export type GenerateImageMetadataInput = z.infer<typeof GenerateImageMetadataInp
 const GenerateImageMetadataOutputSchema = z.object({
   metadata: z
     .string()
-    .describe('A short, one-sentence description of the image.'),
+    .describe('A detailed, descriptive paragraph about the image.'),
+  tags: z.array(z.string()).describe('An array of relevant keywords or tags for the image.'),
+  title: z.string().describe('A short, catchy title for the image.')
 });
 export type GenerateImageMetadataOutput = z.infer<typeof GenerateImageMetadataOutputSchema>;
 
@@ -36,9 +38,13 @@ const generateImageMetadataPrompt = ai.definePrompt({
   name: 'generateImageMetadataPrompt',
   input: {schema: GenerateImageMetadataInputSchema},
   output: {schema: GenerateImageMetadataOutputSchema},
-  prompt: `You are an AI that generates short, one-sentence descriptions of images.
+  prompt: `You are an expert AI at analyzing images and generating rich, detailed metadata.
 
-  Analyze the image and provide a concise description of its content, including objects, scenes, and subjects.
+  Analyze the provided image and generate the following:
+  1.  **metadata**: A detailed, descriptive paragraph about the image. Describe the scene, subjects, objects, colors, mood, and any notable details.
+  2.  **tags**: A list of 5-7 relevant keywords or tags that accurately represent the image content.
+  3.  **title**: A short, catchy, and descriptive title for the image.
+
   Image: {{media url=photoDataUri}}`,
 });
 
