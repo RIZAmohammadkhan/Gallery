@@ -2,6 +2,7 @@ import clientPromise from '@/lib/mongodb';
 import { DbStoredImage, DbFolder, DbSharedGallery } from '@/lib/models';
 import { StoredImage, Folder } from '@/lib/types';
 import { ObjectId } from 'mongodb';
+import { SecureImageStorage } from '@/lib/storage';
 
 export class DatabaseService {
   // Images
@@ -11,7 +12,12 @@ export class DatabaseService {
       const images = client.db().collection('images');
       const userImages = await images.find({ userId: new ObjectId(userId) }).toArray();
       
-      return userImages.map((img: any) => this.dbImageToStoredImage(img));
+      // Convert all images with their storage data
+      const storedImages = await Promise.all(
+        userImages.map((img: any) => this.dbImageToStoredImage(img))
+      );
+      
+      return storedImages;
     } catch (error) {
       console.error('Error fetching user images:', error);
       return [];
@@ -34,7 +40,7 @@ export class DatabaseService {
       const result = await images.insertOne(newImage);
       const inserted = await images.findOne({ _id: result.insertedId });
       
-      return inserted ? this.dbImageToStoredImage(inserted as any) : null;
+      return inserted ? await this.dbImageToStoredImage(inserted as any) : null;
     } catch (error) {
       console.error('Error creating image:', error);
       return null;
@@ -61,7 +67,21 @@ export class DatabaseService {
     try {
       const client = await clientPromise;
       const images = client.db().collection('images');
+      
+      // Get the image to find its storageId
+      const image = await images.findOne({ userId: new ObjectId(userId), id: imageId });
+      if (!image) return false;
+      
+      // Delete the image record
       const result = await images.deleteOne({ userId: new ObjectId(userId), id: imageId });
+      
+      // Clean up storage if no other images reference it
+      if (result.deletedCount > 0 && image.storageId) {
+        const otherReferences = await images.countDocuments({ storageId: image.storageId });
+        if (otherReferences === 0) {
+          await SecureImageStorage.deleteImage(image.storageId);
+        }
+      }
       
       return result.deletedCount > 0;
     } catch (error) {
@@ -309,11 +329,17 @@ export class DatabaseService {
   }
 
   // Helper methods
-  private static dbImageToStoredImage(dbImage: any): StoredImage {
+  private static async dbImageToStoredImage(dbImage: any): Promise<StoredImage> {
+    // Retrieve image data from storage
+    const imageStorage = await SecureImageStorage.getImage(dbImage.storageId);
+    const dataUri = imageStorage 
+      ? SecureImageStorage.bufferToDataUri(imageStorage.data, imageStorage.mimeType)
+      : '';
+
     return {
       id: dbImage.id,
       name: dbImage.name,
-      dataUri: dbImage.fileUrl,
+      dataUri: dataUri,
       metadata: dbImage.metadata,
       tags: dbImage.tags,
       folderId: dbImage.folderId,

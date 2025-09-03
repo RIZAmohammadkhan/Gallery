@@ -50,10 +50,6 @@ next-env.d.ts
 firebase-debug.log
 firestore-debug.log
 
-# Uploads directory (for development, configure for production)
-/uploads/*
-!/uploads/.gitkeep
-
 # Logs
 logs
 *.log

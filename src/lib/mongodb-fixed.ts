@@ -6,14 +6,23 @@ if (!process.env.MONGODB_URI) {
 
 const uri = process.env.MONGODB_URI;
 
-// Local MongoDB configuration (no SSL needed)
+// Atlas-optimized configuration with SSL/TLS handling
 const options: MongoClientOptions = {
-  maxPoolSize: 10,
-  serverSelectionTimeoutMS: 5000,
-  connectTimeoutMS: 10000,
+  maxPoolSize: 10, // Maintain up to 10 socket connections
+  serverSelectionTimeoutMS: 15000, // Increased timeout for better connection handling
+  socketTimeoutMS: 45000, // Close sockets after 45 seconds of inactivity
+  connectTimeoutMS: 20000, // Increased connection timeout
   retryWrites: true,
   retryReads: true,
-  // No SSL/TLS configuration needed for local MongoDB
+  // SSL/TLS Configuration for Atlas
+  tls: true,
+  tlsAllowInvalidCertificates: false,
+  tlsAllowInvalidHostnames: false,
+  // Additional options for connection stability
+  heartbeatFrequencyMS: 10000,
+  maxIdleTimeMS: 30000,
+  // Compression for better performance
+  compressors: ['snappy', 'zlib'],
 };
 
 let client: MongoClient;

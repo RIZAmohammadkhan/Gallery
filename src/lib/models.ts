@@ -16,8 +16,7 @@ export interface DbStoredImage {
   userId: ObjectId;
   id: string; // Frontend ID for compatibility
   name: string;
-  filename: string; // Original filename
-  fileUrl: string; // Storage URL
+  storageId: string; // Reference to image_storage collection
   mimeType: string;
   size: number;
   metadata?: string;
