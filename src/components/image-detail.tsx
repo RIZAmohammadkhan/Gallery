@@ -22,7 +22,7 @@ import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/comp
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Sparkles, FolderSync, Trash2, RotateCcw } from "lucide-react";
+import { Loader2, Sparkles, FolderSync, Trash2, RotateCcw, Download } from "lucide-react";
 import type { StoredImage, Folder } from "@/lib/types";
 
 interface ImageDetailProps {
@@ -55,6 +55,16 @@ export default function ImageDetail({
     setIsEditDialogOpen(false);
     setEditPrompt('');
   }
+  
+  const handleDownload = () => {
+    const link = document.createElement('a');
+    link.href = image.dataUri;
+    link.download = image.name;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
 
   const isLoading = !!loadingState;
 
@@ -151,7 +161,14 @@ export default function ImageDetail({
                           </DialogFooter>
                       </DialogContent>
                     </Dialog>
-                    
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                          <Button variant="outline" size="icon" onClick={handleDownload} disabled={isLoading}>
+                              <Download className="h-4 w-4" />
+                          </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Download</TooltipContent>
+                    </Tooltip>
                     <Tooltip>
                       <TooltipTrigger asChild>
                           <Button variant="destructive-outline" size="icon" onClick={() => onUpdateImage(image.id, { isDefective: true, defectType: 'Manual' })} disabled={isLoading}>

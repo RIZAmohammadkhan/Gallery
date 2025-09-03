@@ -18,6 +18,7 @@ import AppSidebar from "./app-sidebar";
 import ImageGrid from "./image-grid";
 import ImageDetail from "./image-detail";
 import { ShareDialog } from "./share-dialog";
+import { ai } from "@/ai/genkit";
 
 const initialFolders: Folder[] = [
   { id: "folder-1", name: "Landscapes" },
