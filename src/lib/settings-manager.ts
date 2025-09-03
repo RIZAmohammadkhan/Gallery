@@ -1,41 +1,102 @@
 import { AppSettings, DEFAULT_SETTINGS } from './settings';
 
-const SETTINGS_KEY = 'gallery-app-settings';
-
 export class SettingsManager {
   private settings: AppSettings;
   private listeners: Array<(settings: AppSettings) => void> = [];
+  private userId: string | null = null;
 
-  constructor() {
-    this.settings = this.loadSettings();
+  constructor(userId?: string) {
+    this.userId = userId || null;
+    this.settings = { ...DEFAULT_SETTINGS };
+    
+    // Load settings asynchronously if userId is provided
+    if (this.userId) {
+      this.loadSettingsFromDB();
+    }
   }
 
-  private loadSettings(): AppSettings {
-    if (typeof window === 'undefined') {
-      return { ...DEFAULT_SETTINGS };
-    }
+  setUserId(userId: string) {
+    this.userId = userId;
+    this.loadSettingsFromDB();
+  }
+
+  private async loadSettingsFromDB(): Promise<void> {
+    if (!this.userId) return;
 
     try {
-      const stored = localStorage.getItem(SETTINGS_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        return { ...DEFAULT_SETTINGS, ...parsed };
+      const response = await fetch('/api/settings', {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      
+      if (response.ok) {
+        const dbSettings = await response.json();
+        if (dbSettings && Object.keys(dbSettings).length > 0) {
+          this.settings = { ...DEFAULT_SETTINGS, ...dbSettings };
+          this.notifyListeners();
+        }
+      } else {
+        throw new Error('Failed to fetch settings');
       }
     } catch (error) {
-      console.error('Failed to load settings:', error);
+      console.error('Failed to load settings from database:', error);
+      // Fall back to localStorage for backward compatibility
+      this.loadSettingsFromLocalStorage();
     }
-
-    return { ...DEFAULT_SETTINGS };
   }
 
-  private saveSettings(): void {
+  private loadSettingsFromLocalStorage(): void {
     if (typeof window === 'undefined') return;
 
     try {
-      localStorage.setItem(SETTINGS_KEY, JSON.stringify(this.settings));
+      const stored = localStorage.getItem('gallery-app-settings');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        this.settings = { ...DEFAULT_SETTINGS, ...parsed };
+        this.notifyListeners();
+        
+        // Migrate to database if user is logged in
+        if (this.userId) {
+          this.saveSettingsToDB();
+          // Clear localStorage after migration
+          localStorage.removeItem('gallery-app-settings');
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load settings from localStorage:', error);
+    }
+  }
+
+  private async saveSettingsToDB(): Promise<void> {
+    if (!this.userId) return;
+
+    try {
+      const response = await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(this.settings),
+      });
+      
+      if (response.ok) {
+        this.notifyListeners();
+      } else {
+        throw new Error('Failed to save settings');
+      }
+    } catch (error) {
+      console.error('Failed to save settings to database:', error);
+      // Fall back to localStorage
+      this.saveSettingsToLocalStorage();
+    }
+  }
+
+  private saveSettingsToLocalStorage(): void {
+    if (typeof window === 'undefined') return;
+
+    try {
+      localStorage.setItem('gallery-app-settings', JSON.stringify(this.settings));
       this.notifyListeners();
     } catch (error) {
-      console.error('Failed to save settings:', error);
+      console.error('Failed to save settings to localStorage:', error);
     }
   }
 
@@ -49,17 +110,29 @@ export class SettingsManager {
 
   updateSettings(updates: Partial<AppSettings>): void {
     this.settings = { ...this.settings, ...updates };
-    this.saveSettings();
+    if (this.userId) {
+      this.saveSettingsToDB();
+    } else {
+      this.saveSettingsToLocalStorage();
+    }
   }
 
   updateGeminiApiKey(apiKey: string): void {
     this.settings.geminiApiKey = apiKey;
-    this.saveSettings();
+    if (this.userId) {
+      this.saveSettingsToDB();
+    } else {
+      this.saveSettingsToLocalStorage();
+    }
   }
 
   updateCloudConfig(cloudConfig: Partial<AppSettings['cloudStorage']>): void {
     this.settings.cloudStorage = { ...this.settings.cloudStorage, ...cloudConfig };
-    this.saveSettings();
+    if (this.userId) {
+      this.saveSettingsToDB();
+    } else {
+      this.saveSettingsToLocalStorage();
+    }
   }
 
   getGeminiApiKey(): string {
@@ -92,7 +165,11 @@ export class SettingsManager {
 
   reset(): void {
     this.settings = { ...DEFAULT_SETTINGS };
-    this.saveSettings();
+    if (this.userId) {
+      this.saveSettingsToDB();
+    } else {
+      this.saveSettingsToLocalStorage();
+    }
   }
 
   exportSettings(): string {

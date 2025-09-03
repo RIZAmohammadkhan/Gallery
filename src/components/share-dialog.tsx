@@ -16,22 +16,24 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Share2, Copy, ExternalLink, Clock, Info } from 'lucide-react';
-import { copyToClipboard, getShareUrl } from '@/lib/sharing';
+import { copyToClipboard, getShareUrl } from '@/lib/sharing-client';
+import { useToast } from '@/hooks/use-toast';
 
 interface ShareDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
-  onShare: (title: string, expirationDays?: number) => string; // Returns the share URL
+  selectedImages: Array<{ id: string; name: string; dataUri: string; }>;
   selectedImageCount: number;
 }
 
-export function ShareDialog({ isOpen, onOpenChange, onShare, selectedImageCount }: ShareDialogProps) {
+export function ShareDialog({ isOpen, onOpenChange, selectedImages, selectedImageCount }: ShareDialogProps) {
   const [title, setTitle] = useState("My Shared Gallery");
   const [hasExpiration, setHasExpiration] = useState(false);
   const [expirationDays, setExpirationDays] = useState("7");
   const [shareUrl, setShareUrl] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     if (copySuccess) {
@@ -57,8 +59,43 @@ export function ShareDialog({ isOpen, onOpenChange, onShare, selectedImageCount 
     setIsGenerating(true);
     try {
       const expiration = hasExpiration ? parseInt(expirationDays) : undefined;
-      const url = onShare(title.trim(), expiration);
-      setShareUrl(url);
+      
+      // Call the API to create shared gallery
+      const response = await fetch('/api/shared-galleries', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: title.trim(),
+          images: selectedImages,
+          expirationDays: expiration
+        }),
+      });
+
+      if (response.ok) {
+        const { shareId } = await response.json();
+        const url = getShareUrl(shareId);
+        setShareUrl(url);
+        
+        toast({
+          title: "Shared Gallery Created",
+          description: "Your gallery has been created successfully!"
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to create shared gallery.",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Error creating shared gallery:', error);
+      toast({
+        title: "Error",
+        description: "An error occurred while creating the shared gallery.",
+        variant: "destructive"
+      });
     } finally {
       setIsGenerating(false);
     }

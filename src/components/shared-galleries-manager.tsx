@@ -12,7 +12,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { listSharedGalleries, deleteSharedGallery, getShareUrl, copyToClipboard, cleanupExpiredGalleries, type SharedGallery } from '@/lib/sharing';
+import { getShareUrl, copyToClipboard, type SharedGallery } from '@/lib/sharing-client';
 import { Share2, Copy, ExternalLink, Trash2, Clock, Eye, RefreshCw } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 
@@ -27,20 +27,20 @@ export function SharedGalleriesManager({ isOpen, onOpenChange }: SharedGalleries
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
-  const loadGalleries = () => {
+  const loadGalleries = async () => {
     setLoading(true);
     try {
-      // Clean up expired galleries first
-      const cleanedCount = cleanupExpiredGalleries();
-      if (cleanedCount > 0) {
-        toast({
-          title: "Cleanup Complete",
-          description: `Removed ${cleanedCount} expired galleries.`
-        });
-      }
+      // First cleanup expired galleries
+      await fetch('/api/shared-galleries/cleanup', { method: 'POST' });
       
-      const galleriesList = listSharedGalleries();
-      setGalleries(galleriesList);
+      // Then load the galleries
+      const response = await fetch('/api/shared-galleries');
+      if (response.ok) {
+        const galleriesList = await response.json();
+        setGalleries(galleriesList);
+      } else {
+        throw new Error('Failed to fetch galleries');
+      }
     } catch (error) {
       console.error('Failed to load galleries:', error);
       toast({
@@ -59,14 +59,40 @@ export function SharedGalleriesManager({ isOpen, onOpenChange }: SharedGalleries
     }
   }, [isOpen]);
 
-  const handleCopyLink = async (shareId: string) => {
-    const shareUrl = getShareUrl(shareId);
-    const success = await copyToClipboard(shareUrl);
+  const handleDeleteGallery = async (shareId: string) => {
+    try {
+      const response = await fetch(`/api/shared-galleries?shareId=${shareId}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        setGalleries(galleries.filter(g => g.id !== shareId));
+        toast({
+          title: "Gallery Deleted",
+          description: "Shared gallery has been deleted successfully."
+        });
+      } else {
+        throw new Error('Failed to delete gallery');
+      }
+    } catch (error) {
+      console.error('Failed to delete gallery:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete shared gallery.",
+        variant: "destructive"
+      });
+    }
+    setDeleteGalleryId(null);
+  };
+
+  const handleCopyUrl = async (shareId: string) => {
+    const url = getShareUrl(shareId);
+    const success = await copyToClipboard(url);
     
     if (success) {
       toast({
         title: "Link Copied",
-        description: "Share link copied to clipboard."
+        description: "Share link has been copied to your clipboard."
       });
     } else {
       toast({
@@ -77,168 +103,178 @@ export function SharedGalleriesManager({ isOpen, onOpenChange }: SharedGalleries
     }
   };
 
-  const handleOpenGallery = (shareId: string) => {
-    const shareUrl = getShareUrl(shareId);
-    window.open(shareUrl, '_blank');
-  };
-
-  const handleDeleteGallery = (galleryId: string) => {
-    const success = deleteSharedGallery(galleryId);
-    
-    if (success) {
-      setGalleries(prev => prev.filter(g => g.id !== galleryId));
-      toast({
-        title: "Gallery Deleted",
-        description: "Shared gallery has been deleted."
-      });
-    } else {
-      toast({
-        title: "Delete Failed",
-        description: "Failed to delete the gallery.",
-        variant: "destructive"
-      });
-    }
-    
-    setDeleteGalleryId(null);
+  const openInNewTab = (shareId: string) => {
+    const url = getShareUrl(shareId);
+    window.open(url, '_blank');
   };
 
   const formatDate = (date: Date) => {
     return new Intl.DateTimeFormat('en-US', {
+      year: 'numeric',
       month: 'short',
       day: 'numeric',
-      year: 'numeric',
       hour: '2-digit',
       minute: '2-digit'
-    }).format(date);
+    }).format(new Date(date));
   };
 
-  const getExpirationStatus = (gallery: SharedGallery) => {
-    if (!gallery.expiresAt) {
-      return { text: 'Never expires', variant: 'secondary' as const };
-    }
-    
+  const isExpired = (gallery: SharedGallery) => {
+    return gallery.expiresAt && new Date(gallery.expiresAt) < new Date();
+  };
+
+  const getTimeUntilExpiry = (expiresAt: Date) => {
     const now = new Date();
-    const timeLeft = gallery.expiresAt.getTime() - now.getTime();
-    const hoursLeft = timeLeft / (1000 * 60 * 60);
+    const expiry = new Date(expiresAt);
+    const diff = expiry.getTime() - now.getTime();
     
-    if (timeLeft <= 0) {
-      return { text: 'Expired', variant: 'destructive' as const };
-    } else if (hoursLeft < 24) {
-      return { text: `${Math.ceil(hoursLeft)}h left`, variant: 'destructive' as const };
-    } else if (hoursLeft < 72) {
-      return { text: `${Math.ceil(hoursLeft / 24)}d left`, variant: 'outline' as const };
-    } else {
-      return { text: `Expires ${formatDate(gallery.expiresAt)}`, variant: 'secondary' as const };
-    }
+    if (diff < 0) return "Expired";
+    
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    
+    if (days > 0) return `${days}d ${hours}h`;
+    if (hours > 0) return `${hours}h`;
+    return "< 1h";
   };
 
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-[800px] max-h-[80vh] overflow-hidden flex flex-col">
-          <DialogHeader className="flex-shrink-0">
-            <div className="flex items-center justify-between">
-              <div>
-                <DialogTitle>Shared Galleries</DialogTitle>
-                <DialogDescription>
-                  Manage your shared gallery links
-                </DialogDescription>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={loadGalleries}
-                disabled={loading}
-              >
-                <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-                Refresh
-              </Button>
-            </div>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Share2 className="h-5 w-5" />
+              Shared Galleries
+            </DialogTitle>
+            <DialogDescription>
+              Manage your shared image galleries. View, copy links, or delete shared galleries.
+            </DialogDescription>
           </DialogHeader>
           
-          <div className="flex-1 overflow-y-auto pr-2">
+          <div className="flex justify-between items-center">
+            <div className="text-sm text-muted-foreground">
+              {galleries.length} galleries found
+            </div>
+            <Button 
+              onClick={loadGalleries} 
+              variant="outline" 
+              size="sm" 
+              disabled={loading}
+              className="flex items-center gap-2"
+            >
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+          </div>
+
+          <div className="overflow-y-auto max-h-[60vh] space-y-4">
             {loading ? (
-              <div className="flex items-center justify-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              <div className="text-center py-8">
+                <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-2" />
+                <p className="text-sm text-muted-foreground">Loading galleries...</p>
               </div>
             ) : galleries.length === 0 ? (
               <div className="text-center py-8">
-                <Share2 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <Share2 className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
                 <h3 className="text-lg font-medium mb-2">No Shared Galleries</h3>
-                <p className="text-muted-foreground">
-                  Create your first shared gallery by selecting images and clicking the share button.
+                <p className="text-sm text-muted-foreground">
+                  You haven't created any shared galleries yet. Select some images and use the share feature to get started.
                 </p>
               </div>
             ) : (
-              <div className="space-y-4">
-                {galleries.map((gallery) => {
-                  const expirationStatus = getExpirationStatus(gallery);
-                  
-                  return (
-                    <Card key={gallery.id}>
-                      <CardHeader className="pb-3">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1 min-w-0">
-                            <CardTitle className="text-lg truncate">{gallery.title}</CardTitle>
-                            <div className="flex flex-wrap items-center gap-2 mt-2 text-sm text-muted-foreground">
-                              <div className="flex items-center gap-1">
-                                <Clock className="h-3 w-3" />
-                                <span>Created {formatDate(gallery.createdAt)}</span>
-                              </div>
-                              <div className="flex items-center gap-1">
-                                <Eye className="h-3 w-3" />
-                                <span>{gallery.accessCount} view{gallery.accessCount !== 1 ? 's' : ''}</span>
-                              </div>
-                              <div className="flex items-center gap-1">
-                                <span>{gallery.images.length} image{gallery.images.length !== 1 ? 's' : ''}</span>
-                              </div>
-                            </div>
-                          </div>
-                          <Badge variant={expirationStatus.variant}>
-                            {expirationStatus.text}
-                          </Badge>
+              galleries.map((gallery) => (
+                <Card key={gallery.id} className={`${isExpired(gallery) ? 'opacity-60' : ''}`}>
+                  <CardHeader className="pb-3">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <CardTitle className="text-lg flex items-center gap-2">
+                          {gallery.title}
+                          {isExpired(gallery) && (
+                            <Badge variant="destructive" className="text-xs">
+                              Expired
+                            </Badge>
+                          )}
+                        </CardTitle>
+                        <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
+                          <span className="flex items-center gap-1">
+                            <Eye className="h-4 w-4" />
+                            {gallery.images.length} images
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Eye className="h-4 w-4" />
+                            {gallery.accessCount} views
+                          </span>
+                          <span>Created {formatDate(gallery.createdAt)}</span>
                         </div>
-                      </CardHeader>
-                      <CardContent className="pt-0">
-                        <div className="flex justify-between items-center">
-                          <div className="flex gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleCopyLink(gallery.id)}
-                            >
-                              <Copy className="h-4 w-4 mr-1" />
-                              Copy Link
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleOpenGallery(gallery.id)}
-                            >
-                              <ExternalLink className="h-4 w-4 mr-1" />
-                              Open
-                            </Button>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={() => handleCopyUrl(gallery.id)}
+                          variant="outline"
+                          size="sm"
+                          className="flex items-center gap-1"
+                        >
+                          <Copy className="h-4 w-4" />
+                          Copy
+                        </Button>
+                        <Button
+                          onClick={() => openInNewTab(gallery.id)}
+                          variant="outline"
+                          size="sm"
+                          className="flex items-center gap-1"
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                          View
+                        </Button>
+                        <Button
+                          onClick={() => setDeleteGalleryId(gallery.id)}
+                          variant="outline"
+                          size="sm"
+                          className="flex items-center gap-1 text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          Delete
+                        </Button>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    <div className="flex items-center justify-between">
+                      <div className="flex gap-2 overflow-x-auto">
+                        {gallery.images.slice(0, 5).map((image, index) => (
+                          <img
+                            key={image.id}
+                            src={image.dataUri}
+                            alt={image.name}
+                            className="w-12 h-12 object-cover rounded border flex-shrink-0"
+                          />
+                        ))}
+                        {gallery.images.length > 5 && (
+                          <div className="w-12 h-12 bg-muted rounded border flex items-center justify-center text-xs text-muted-foreground flex-shrink-0">
+                            +{gallery.images.length - 5}
                           </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setDeleteGalleryId(gallery.id)}
-                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                        )}
+                      </div>
+                      {gallery.expiresAt && (
+                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                          <Clock className="h-4 w-4" />
+                          {isExpired(gallery) ? (
+                            <span className="text-destructive">Expired</span>
+                          ) : (
+                            <span>Expires in {getTimeUntilExpiry(gallery.expiresAt)}</span>
+                          )}
                         </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
             )}
           </div>
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={!!deleteGalleryId} onOpenChange={() => setDeleteGalleryId(null)}>
+      <AlertDialog open={deleteGalleryId !== null} onOpenChange={() => setDeleteGalleryId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Shared Gallery</AlertDialogTitle>

@@ -1,8 +1,9 @@
 "use client";
 
-import { GalleryHorizontal, Search, Share2, X, History, Trash2, Download, CheckSquare, Settings, Cloud } from "lucide-react";
+import { GalleryHorizontal, Search, Share2, X, History, Trash2, Download, CheckSquare, Settings } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "./ui/button";
+import { UserMenu } from "./user-menu";
 
 interface AppHeaderProps {
   onSearch: (query: string) => void;
@@ -15,7 +16,6 @@ interface AppHeaderProps {
   onOpenSharedGalleries: () => void;
   onBulkDelete: () => void;
   onBulkExport: () => void;
-  onCloudSync: () => void;
   onSelectAll: () => void;
   onUnselectAll: () => void;
   totalVisibleImages: number;
@@ -35,7 +35,6 @@ export default function AppHeader({
   onOpenSharedGalleries,
   onBulkDelete,
   onBulkExport,
-  onCloudSync,
   onSelectAll,
   onUnselectAll,
   totalVisibleImages,
@@ -104,12 +103,6 @@ export default function AppHeader({
                   <span className="ml-1">({selectedImageCount})</span>
                 </Button>
                 
-                <Button variant="outline" size="sm" onClick={onCloudSync} className="hidden lg:flex">
-                  <Cloud className="mr-1.5 h-4 w-4" />
-                  <span className="hidden xl:inline">Sync</span>
-                  <span className="ml-1">({selectedImageCount})</span>
-                </Button>
-                
                 <Button variant="destructive" size="sm" onClick={onBulkDelete}>
                   <Trash2 className="mr-1.5 h-4 w-4" />
                   <span className="hidden sm:inline">{activeView === "bin" ? "Delete" : "Bin"}</span>
@@ -129,13 +122,10 @@ export default function AppHeader({
               <History className="mr-2 h-4 w-4" />
               Shared
             </Button>
-            <Button variant="ghost" size="sm" onClick={onOpenSettings}>
-              <Settings className="h-4 w-4" />
-              <span className="sr-only">Settings</span>
-            </Button>
             <Button variant="outline" size="sm" onClick={onToggleSelectionMode}>
               Select
             </Button>
+            <UserMenu onOpenSettings={onOpenSettings} />
           </div>
         )}
       </div>

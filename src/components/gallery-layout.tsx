@@ -5,7 +5,7 @@ import { SidebarProvider, Sidebar, SidebarInset, SidebarRail } from "@/component
 import { Folder, StoredImage } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from 'next/navigation';
-import { createSharedGallery, getShareUrl, copyToClipboard } from "@/lib/sharing";
+import { getShareUrl, copyToClipboard } from "@/lib/sharing-client";
 
 
 import { generateImageMetadata } from "@/ai/flows/generate-image-metadata-flow";
@@ -23,28 +23,30 @@ import { SharedGalleriesManager } from "./shared-galleries-manager";
 import { BulkDeleteDialog } from "./bulk-delete-dialog";
 import { BulkExportDialog } from "./bulk-export-dialog";
 import { SettingsDialog } from "./settings-dialog";
-import { CloudSyncDialog } from "./cloud-sync-dialog";
 import { exportImagesAsZip } from "@/lib/bulk-operations";
 
-const initialFolders: Folder[] = [
-  { id: "folder-1", name: "Landscapes" },
-  { id: "folder-2", name: "Cityscapes" },
-  { id: "folder-3", name: "Portraits" },
-];
-
-const initialImages: StoredImage[] = [
-    { id: '1', name: 'Mountain Lake', dataUri: 'https://picsum.photos/id/10/800/600', metadata: 'A serene mountain lake reflects a clear blue sky.', folderId: 'folder-1', data_ai_hint: 'mountain lake', width: 800, height: 600, tags: ['mountain', 'lake', 'sky'] },
-    { id: '2', name: 'Urban Night', dataUri: 'https://picsum.photos/id/20/800/1200', metadata: 'City street at night with light trails from traffic.', folderId: 'folder-2', data_ai_hint: 'city night', width: 800, height: 1200, tags: ['city', 'night', 'traffic'] },
-    { id: '3', name: 'Smiling Person', dataUri: 'https://picsum.photos/id/30/800/600', metadata: 'A close-up portrait of a person smiling warmly.', folderId: 'folder-3', data_ai_hint: 'person smiling', width: 800, height: 600, tags: ['portrait', 'person', 'smiling'] },
-    { id: '4', name: 'Forest Path', dataUri: 'https://picsum.photos/id/40/800/1000', metadata: 'A sunlit path winding through a dense green forest.', folderId: 'folder-1', data_ai_hint: 'forest path', width: 800, height: 1000, tags: ['forest', 'path', 'nature'] },
-    { id: '5', name: 'Blurry Photo', dataUri: 'https://picsum.photos/id/50/800/600', metadata: 'Abstract lights, out of focus.', isDefective: true, defectType: 'Blurry', data_ai_hint: 'blurry lights', width: 800, height: 600, tags: ['abstract', 'lights', 'blurry'] },
-    { id: '6', name: 'Modern Architecture', dataUri: 'https://picsum.photos/id/60/800/700', metadata: 'The sharp geometric lines of a modern building against the sky.', folderId: 'folder-2', data_ai_hint: 'modern architecture', width: 800, height: 700, tags: ['architecture', 'modern', 'building'] },
-    { id: '7', name: 'Uncategorized Photo', dataUri: 'https://picsum.photos/id/70/800/600', metadata: 'A beautiful shot of a beach.', folderId: null, data_ai_hint: 'beach', width: 800, height: 600, tags: ['beach', 'ocean', 'sand'] },
-];
+// Helper function to convert file URL to data URI for AI processing
+const convertFileUrlToDataUri = async (fileUrl: string): Promise<string> => {
+  try {
+    const response = await fetch(fileUrl);
+    const blob = await response.blob();
+    
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch (error) {
+    console.error('Error converting file URL to data URI:', error);
+    throw error;
+  }
+};
 
 export default function GalleryLayout() {
-  const [folders, setFolders] = useState<Folder[]>(initialFolders);
-  const [images, setImages] = useState<StoredImage[]>(initialImages);
+  const [folders, setFolders] = useState<Folder[]>([]);
+  const [images, setImages] = useState<StoredImage[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [activeView, setActiveView] = useState<string>("all");
   const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -57,13 +59,60 @@ export default function GalleryLayout() {
   const [isSharedGalleriesOpen, setIsSharedGalleriesOpen] = useState(false);
   const [isBulkDeleteDialogOpen, setIsBulkDeleteDialogOpen] = useState(false);
   const [isBulkExportDialogOpen, setIsBulkExportDialogOpen] = useState(false);
-  const [isCloudSyncDialogOpen, setIsCloudSyncDialogOpen] = useState(false);
   const [exportProgress, setExportProgress] = useState(0);
   const [isExportComplete, setIsExportComplete] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   const { toast } = useToast();
   const router = useRouter();
+
+  // Load data from database on mount
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setIsLoading(true);
+        const [imagesResponse, foldersResponse] = await Promise.all([
+          fetch('/api/images'),
+          fetch('/api/folders')
+        ]);
+
+        if (imagesResponse.ok) {
+          const imagesData = await imagesResponse.json();
+          setImages(imagesData);
+        } else {
+          console.error('Failed to load images');
+          toast({
+            title: "Error Loading Images",
+            description: "Failed to load your images from the database.",
+            variant: "destructive"
+          });
+        }
+
+        if (foldersResponse.ok) {
+          const foldersData = await foldersResponse.json();
+          setFolders(foldersData);
+        } else {
+          console.error('Failed to load folders');
+          toast({
+            title: "Error Loading Folders",
+            description: "Failed to load your folders from the database.",
+            variant: "destructive"
+          });
+        }
+      } catch (error) {
+        console.error('Error loading data:', error);
+        toast({
+          title: "Error Loading Data",
+          description: "Failed to connect to the database. Please try refreshing the page.",
+          variant: "destructive"
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadData();
+  }, [toast]);
   
   // Debounce search
   useEffect(() => {
@@ -83,10 +132,75 @@ export default function GalleryLayout() {
   }, [searchQuery, images]);
 
 
-  const handleCreateFolder = (name: string) => {
-    const newFolder: Folder = { id: `folder-${Date.now()}`, name };
-    setFolders((prev) => [...prev, newFolder]);
-    toast({ title: "Folder Created", description: `Successfully created "${name}".` });
+  const handleCreateFolder = async (name: string) => {
+    try {
+      const response = await fetch('/api/folders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ name }),
+      });
+
+      if (response.ok) {
+        const newFolder = await response.json();
+        setFolders((prev) => [...prev, newFolder]);
+        toast({ title: "Folder Created", description: `Successfully created "${name}".` });
+      } else {
+        const error = await response.json();
+        toast({ 
+          title: "Error Creating Folder", 
+          description: error.error || "Failed to create folder.",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Error creating folder:', error);
+      toast({ 
+        title: "Error Creating Folder", 
+        description: "Failed to connect to the server.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleDeleteFolder = async (folderId: string) => {
+    try {
+      const response = await fetch(`/api/folders?folderId=${folderId}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        // Remove folder from local state
+        setFolders((prev) => prev.filter(f => f.id !== folderId));
+        
+        // Move images from this folder to uncategorized
+        setImages(prev => prev.map(img => 
+          img.folderId === folderId ? { ...img, folderId: null } : img
+        ));
+        
+        // If we're currently viewing this folder, switch to "all"
+        if (activeView === folderId) {
+          setActiveView('all');
+        }
+        
+        toast({ title: "Folder Deleted", description: "Folder and its images moved to uncategorized." });
+      } else {
+        const error = await response.json();
+        toast({ 
+          title: "Error Deleting Folder", 
+          description: error.error || "Failed to delete folder.",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Error deleting folder:', error);
+      toast({ 
+        title: "Error Deleting Folder", 
+        description: "Failed to connect to the server.",
+        variant: "destructive"
+      });
+    }
   };
   
   const handleChangeActiveView = (view: string) => {
@@ -97,104 +211,165 @@ export default function GalleryLayout() {
     setActiveView(view);
   };
 
-
-  const readFileAsDataURI = (file: File): Promise<{dataUri: string, width: number, height: number}> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const img = new Image();
-        img.onload = () => {
-          resolve({
-            dataUri: e.target?.result as string,
-            width: img.width,
-            height: img.height,
-          });
-        };
-        img.onerror = reject;
-        img.src = e.target?.result as string;
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-  };
-
   const handleFileUpload = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    const imageId = `img-${Date.now()}`;
-    setLoadingStates((prev) => ({ ...prev, [imageId]: "Uploading..." }));
+    const tempImageId = `temp-${Date.now()}`;
+    setLoadingStates((prev) => ({ ...prev, [tempImageId]: "Uploading..." }));
+    
+    let uploadedImageId: string | undefined;
     
     try {
-      const { dataUri, width, height } = await readFileAsDataURI(file);
-      const newImage: StoredImage = { id: imageId, name: file.name, dataUri, width, height, folderId: null };
+      // Upload file to server
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const uploadResponse = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!uploadResponse.ok) {
+        const error = await uploadResponse.json();
+        throw new Error(error.error || 'Upload failed');
+      }
+
+      const uploadedImage = await uploadResponse.json();
+      uploadedImageId = uploadedImage.id;
+      
+      // Add the uploaded image to local state with server response data
+      const newImage: StoredImage = {
+        id: uploadedImage.id,
+        name: uploadedImage.name,
+        dataUri: uploadedImage.dataUri,
+        width: uploadedImage.width,
+        height: uploadedImage.height,
+        folderId: null,
+        metadata: '',
+        tags: [],
+        isDefective: false
+      };
+
       setImages((prev) => [newImage, ...prev]);
 
-      setLoadingStates((prev) => ({ ...prev, [imageId]: "Analyzing..." }));
+      // Now run AI analysis and update the image
+      setLoadingStates((prev) => ({ ...prev, [uploadedImage.id]: "Analyzing..." }));
+      
+      // Convert file URL to data URI for AI processing
+      const imageDataUri = await convertFileUrlToDataUri(uploadedImage.dataUri);
+      
       const [metadataRes, defectRes] = await Promise.all([
-        generateImageMetadata({ photoDataUri: dataUri }),
-        detectDefectiveImages({ photoDataUri: dataUri }),
+        generateImageMetadata({ photoDataUri: imageDataUri }),
+        detectDefectiveImages({ photoDataUri: imageDataUri }),
       ]);
       
-      setImages((prev) =>
-        prev.map((img) =>
-          img.id === imageId
-            ? {
-                ...img,
-                name: metadataRes.title,
-                metadata: metadataRes.metadata,
-                tags: metadataRes.tags,
-                isDefective: defectRes.isDefective,
-                defectType: defectRes.defectType,
-              }
-            : img
-        )
-      );
+      // Update image with AI analysis results
+      const imageUpdates = {
+        name: metadataRes.title,
+        metadata: metadataRes.metadata,
+        tags: metadataRes.tags,
+        isDefective: defectRes.isDefective,
+        defectType: defectRes.defectType,
+      };
 
-      // Automatic Categorization
-      setLoadingStates((prev) => ({ ...prev, [imageId]: "Categorizing..." }));
-      if (!defectRes.isDefective && folders.length > 0) {
-        const { category } = await categorizeImage({
-          photoDataUri: dataUri,
-          folders: folders.map(f => f.name),
-        });
-        const targetFolder = folders.find(f => f.name === category);
-        if (targetFolder) {
-          setImages(prev => prev.map(img => img.id === imageId ? { ...img, folderId: targetFolder.id } : img));
-          toast({
-            title: "Upload Successful",
-            description: `${file.name} uploaded and moved to "${category}".`,
+      // Update in database
+      const updateResponse = await fetch('/api/images', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          imageId: uploadedImage.id,
+          ...imageUpdates
+        }),
+      });
+
+      if (updateResponse.ok) {
+        // Update local state
+        setImages((prev) =>
+          prev.map((img) =>
+            img.id === uploadedImage.id
+              ? { ...img, ...imageUpdates }
+              : img
+          )
+        );
+
+        // Automatic Categorization if not defective
+        if (!defectRes.isDefective && folders.length > 0) {
+          setLoadingStates((prev) => ({ ...prev, [uploadedImage.id]: "Categorizing..." }));
+          
+          const { category } = await categorizeImage({
+            photoDataUri: imageDataUri,
+            folders: folders.map(f => f.name),
           });
-        } else {
+          
+          const targetFolder = folders.find(f => f.name === category);
+          if (targetFolder) {
+            // Update folder assignment in database
+            const folderUpdateResponse = await fetch('/api/images', {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                imageId: uploadedImage.id,
+                folderId: targetFolder.id
+              }),
+            });
+
+            if (folderUpdateResponse.ok) {
+              setImages(prev => prev.map(img => 
+                img.id === uploadedImage.id ? { ...img, folderId: targetFolder.id } : img
+              ));
+              toast({
+                title: "Upload Successful",
+                description: `${file.name} uploaded and moved to "${category}".`,
+              });
+            } else {
+              toast({
+                title: "Upload Successful",
+                description: `${file.name} uploaded but couldn't be categorized.`,
+              });
+            }
+          } else {
             toast({
               title: "Upload Successful",
               description: `${file.name} uploaded but couldn't be categorized.`,
             });
+          }
+        } else if (defectRes.isDefective) {
+          toast({
+            title: "Upload Successful",
+            description: `${file.name} has been uploaded and moved to Bin.`,
+          });
+        } else {
+          toast({
+            title: "Upload Successful",
+            description: `${file.name} has been uploaded and analyzed.`,
+          });
         }
-      } else if (defectRes.isDefective) {
-         toast({
-          title: "Upload Successful",
-          description: `${file.name} has been uploaded and moved to Bin.`,
-        });
       } else {
-         toast({
-          title: "Upload Successful",
-          description: `${file.name} has been uploaded and analyzed.`,
-        });
+        throw new Error('Failed to update image metadata');
       }
 
     } catch (error) {
       console.error("Upload failed:", error);
       toast({
         title: "Upload Failed",
-        description: "There was an error processing your image.",
+        description: error instanceof Error ? error.message : "There was an error processing your image.",
         variant: "destructive",
       });
-      setImages(prev => prev.filter(img => img.id !== imageId));
+      
+      // Remove the temporary image from state if it was added
+      setImages(prev => prev.filter(img => img.id !== tempImageId));
     } finally {
       setLoadingStates((prev) => {
         const next = { ...prev };
-        delete next[imageId];
+        delete next[tempImageId];
+        if (uploadedImageId) {
+          delete next[uploadedImageId];
+        }
         return next;
       });
     }
@@ -233,14 +408,17 @@ export default function GalleryLayout() {
 
     setLoadingStates(prev => ({ ...prev, [imageId]: "Categorizing..." }));
     try {
+      // Convert file URL to data URI for AI processing
+      const imageDataUri = await convertFileUrlToDataUri(image.dataUri);
+      
       const { category } = await categorizeImage({
-        photoDataUri: image.dataUri,
+        photoDataUri: imageDataUri,
         folders: folders.map(f => f.name),
       });
 
       const targetFolder = folders.find(f => f.name === category);
       if (targetFolder) {
-        setImages(prev => prev.map(img => img.id === imageId ? { ...img, folderId: targetFolder.id } : img));
+        await handleUpdateImage(imageId, { folderId: targetFolder.id });
         toast({ title: "Categorization Complete", description: `Image moved to "${category}".` });
       } else {
          toast({ title: "Categorization Failed", description: `Could not find a folder named "${category}".`, variant: "destructive" });
@@ -258,62 +436,156 @@ export default function GalleryLayout() {
     }
   };
 
-  const handleUpdateImage = (imageId: string, updates: Partial<StoredImage>) => {
-    setImages(prev => prev.map(img => img.id === imageId ? { ...img, ...updates } : img));
+  const handleUpdateImage = async (imageId: string, updates: Partial<StoredImage>) => {
+    try {
+      // Update in database first
+      const response = await fetch('/api/images', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          imageId,
+          ...updates
+        }),
+      });
+
+      if (response.ok) {
+        // Update local state if database update successful
+        setImages(prev => prev.map(img => img.id === imageId ? { ...img, ...updates } : img));
+      } else {
+        const error = await response.json();
+        toast({
+          title: "Update Failed",
+          description: error.error || "Failed to update image.",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Error updating image:', error);
+      toast({
+        title: "Update Failed",
+        description: "Failed to connect to the server.",
+        variant: "destructive"
+      });
+    }
   };
   
-  const handleDeleteImage = (imageId: string) => {
+  const handleDeleteImage = async (imageId: string) => {
     const image = images.find(img => img.id === imageId);
     if (!image) return;
     
-    if (image.isDefective) {
-      // Permanently delete if image is in bin
-      setImages(prev => prev.filter(img => img.id !== imageId));
-      toast({ 
-        title: "Image Permanently Deleted", 
-        description: "The image has been permanently deleted." 
-      });
-    } else {
-      // Move to bin if image is not in bin
-      setImages(prev => prev.map(img => 
-        img.id === imageId 
-          ? { ...img, isDefective: true, defectType: 'Manual', folderId: null }
-          : img
-      ));
-      toast({ 
-        title: "Image Moved to Bin", 
-        description: "The image has been moved to Bin." 
+    try {
+      if (image.isDefective) {
+        // Permanently delete if image is in bin
+        const response = await fetch(`/api/images?imageId=${imageId}`, {
+          method: 'DELETE',
+        });
+
+        if (response.ok) {
+          setImages(prev => prev.filter(img => img.id !== imageId));
+          toast({ 
+            title: "Image Permanently Deleted", 
+            description: "The image has been permanently deleted." 
+          });
+        } else {
+          const error = await response.json();
+          toast({
+            title: "Delete Failed",
+            description: error.error || "Failed to delete image.",
+            variant: "destructive"
+          });
+        }
+      } else {
+        // Move to bin if image is not in bin
+        await handleUpdateImage(imageId, { isDefective: true, defectType: 'Manual', folderId: null });
+        toast({ 
+          title: "Image Moved to Bin", 
+          description: "The image has been moved to Bin." 
+        });
+      }
+      
+      setSelectedImageId(null);
+    } catch (error) {
+      console.error('Error deleting image:', error);
+      toast({
+        title: "Delete Failed",
+        description: "Failed to connect to the server.",
+        variant: "destructive"
       });
     }
-    
-    setSelectedImageId(null);
   };
 
   const handleEditImage = async (imageId: string, prompt: string) => {
     const image = images.find(img => img.id === imageId);
     if (!image) return;
+    
     setLoadingStates(prev => ({...prev, [imageId]: 'Editing...'}));
+    
     try {
-        const { editedPhotoDataUri } = await editImage({ photoDataUri: image.dataUri, editDescription: prompt });
+        // Convert file URL to data URI for AI processing
+        const imageDataUri = await convertFileUrlToDataUri(image.dataUri);
         
-        // Create a new image instead of replacing the existing one
-        const newImageId = `img-${Date.now()}-edited`;
-        const newImage: StoredImage = {
-          id: newImageId,
-          name: `${image.name} (AI Edited)`,
-          dataUri: editedPhotoDataUri,
-          width: image.width,
-          height: image.height,
-          folderId: image.folderId,
-          metadata: `${image.metadata || ''} (AI edited: ${prompt})`,
-          tags: [...(image.tags || []), 'ai-edited'],
-          isDefective: false
-        };
+        const { editedPhotoDataUri } = await editImage({ photoDataUri: imageDataUri, editDescription: prompt });
         
-        // Add the new edited image to the gallery
-        setImages(prev => [newImage, ...prev]);
+        // Create new image data
+        const newImageName = `${image.name} (AI Edited)`;
+        const newImageMetadata = `${image.metadata || ''} (AI edited: ${prompt})`;
+        const newImageTags = [...(image.tags || []), 'ai-edited'];
+
+        // Upload the edited image as a new image
+        const blob = await fetch(editedPhotoDataUri).then(r => r.blob());
+        const file = new File([blob], `${newImageName}.jpg`, { type: 'image/jpeg' });
         
-        toast({ title: "Image Edited", description: "A new AI-edited image has been added to your gallery." });
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const uploadResponse = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!uploadResponse.ok) {
+          throw new Error('Failed to upload edited image');
+        }
+
+        const uploadedImage = await uploadResponse.json();
+        
+        // Update the new image with metadata and folder assignment
+        const updateResponse = await fetch('/api/images', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            imageId: uploadedImage.id,
+            name: newImageName,
+            metadata: newImageMetadata,
+            tags: newImageTags,
+            folderId: image.folderId,
+            isDefective: false
+          }),
+        });
+
+        if (updateResponse.ok) {
+          // Add the new edited image to local state
+          const newImage: StoredImage = {
+            id: uploadedImage.id,
+            name: newImageName,
+            dataUri: uploadedImage.dataUri,
+            width: uploadedImage.width || image.width,
+            height: uploadedImage.height || image.height,
+            folderId: image.folderId,
+            metadata: newImageMetadata,
+            tags: newImageTags,
+            isDefective: false
+          };
+          
+          setImages(prev => [newImage, ...prev]);
+          toast({ title: "Image Edited", description: "A new AI-edited image has been added to your gallery." });
+        } else {
+          throw new Error('Failed to update image metadata');
+        }
     } catch (error) {
         console.error("Edit failed:", error);
         toast({ title: "Edit Failed", description: "Could not apply AI edits.", variant: "destructive" });
@@ -326,19 +598,19 @@ export default function GalleryLayout() {
     }
   };
 
-  const handleImageDrop = (folderId: string | null, imageId: string) => {
+  const handleImageDrop = async (folderId: string | null, imageId: string) => {
     if (folderId === 'bin') {
-      handleUpdateImage(imageId, { isDefective: true, defectType: 'Manual', folderId: null });
+      await handleUpdateImage(imageId, { isDefective: true, defectType: 'Manual', folderId: null });
       toast({ title: "Image Moved", description: "Image moved to Bin." });
     } else {
       const folder = folders.find(f => f.id === folderId);
       if (folder) {
-        handleUpdateImage(imageId, { folderId, isDefective: false });
+        await handleUpdateImage(imageId, { folderId, isDefective: false });
         toast({ title: "Image Moved", description: `Image moved to "${folder.name}".` });
       } else if (folderId === null) {
         // Dropped on "Uncategorized"
-         handleUpdateImage(imageId, { folderId: null, isDefective: false });
-         toast({ title: "Image Moved", description: `Image moved to "Uncategorized".` });
+        await handleUpdateImage(imageId, { folderId: null, isDefective: false });
+        toast({ title: "Image Moved", description: `Image moved to "Uncategorized".` });
       }
     }
   };
@@ -368,67 +640,84 @@ export default function GalleryLayout() {
     }
   };
 
-  const handleShare = (title: string, expirationDays?: number): string => {
-    const selectedImages = images.filter(img => selectedImageIds.has(img.id)).map(img => ({
-      id: img.id,
-      dataUri: img.dataUri,
-      name: img.name
-    }));
-    
-    // Create a proper shared gallery with persistence
-    const shareId = createSharedGallery(title, selectedImages, expirationDays);
-    const shareUrl = getShareUrl(shareId);
-    
-    // Copy to clipboard automatically
-    copyToClipboard(shareUrl).then((success: boolean) => {
-      if (success) {
-        toast({ 
-          title: "Link Generated and Copied", 
-          description: "Shareable link has been copied to your clipboard." 
-        });
-      } else {
-        toast({ 
-          title: "Link Generated", 
-          description: "Shareable link created successfully." 
-        });
-      }
-    });
-    
-    // Open in a new tab
-    window.open(shareUrl, '_blank');
-    
-    setSelectionMode(false);
-    setSelectedImageIds(new Set());
-    
-    return shareUrl;
-  };
 
   const handleBulkDelete = () => {
     setIsBulkDeleteDialogOpen(true);
   };
 
-  const handleConfirmBulkDelete = () => {
+  const handleConfirmBulkDelete = async () => {
     const selectedIds = Array.from(selectedImageIds);
     
-    if (activeView === "bin") {
-      // Permanently delete images when in bin view
-      setImages(prev => prev.filter(img => !selectedIds.includes(img.id)));
-      
-      toast({ 
-        title: "Images Permanently Deleted", 
-        description: `Successfully deleted ${selectedIds.length} ${selectedIds.length === 1 ? 'image' : 'images'} permanently.` 
-      });
-    } else {
-      // Mark selected images as defective (move to bin) when not in bin view
-      setImages(prev => prev.map(img => 
-        selectedIds.includes(img.id) 
-          ? { ...img, isDefective: true, defectType: 'Manual', folderId: null }
-          : img
-      ));
-      
-      toast({ 
-        title: "Images Moved to Bin", 
-        description: `Successfully moved ${selectedIds.length} ${selectedIds.length === 1 ? 'image' : 'images'} to Bin.` 
+    try {
+      if (activeView === "bin") {
+        // Permanently delete images when in bin view
+        const deletePromises = selectedIds.map(imageId => 
+          fetch(`/api/images?imageId=${imageId}`, { method: 'DELETE' })
+        );
+        
+        const results = await Promise.all(deletePromises);
+        const successCount = results.filter(r => r.ok).length;
+        
+        if (successCount > 0) {
+          setImages(prev => prev.filter(img => !selectedIds.includes(img.id)));
+          toast({ 
+            title: "Images Permanently Deleted", 
+            description: `Successfully deleted ${successCount} ${successCount === 1 ? 'image' : 'images'} permanently.` 
+          });
+        }
+        
+        if (successCount < selectedIds.length) {
+          toast({
+            title: "Some deletions failed",
+            description: `${selectedIds.length - successCount} images could not be deleted.`,
+            variant: "destructive"
+          });
+        }
+      } else {
+        // Mark selected images as defective (move to bin) when not in bin view
+        const updatePromises = selectedIds.map(imageId => 
+          fetch('/api/images', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              imageId,
+              isDefective: true,
+              defectType: 'Manual',
+              folderId: null
+            })
+          })
+        );
+        
+        const results = await Promise.all(updatePromises);
+        const successCount = results.filter(r => r.ok).length;
+        
+        if (successCount > 0) {
+          setImages(prev => prev.map(img => 
+            selectedIds.includes(img.id) 
+              ? { ...img, isDefective: true, defectType: 'Manual', folderId: null }
+              : img
+          ));
+          
+          toast({ 
+            title: "Images Moved to Bin", 
+            description: `Successfully moved ${successCount} ${successCount === 1 ? 'image' : 'images'} to Bin.` 
+          });
+        }
+        
+        if (successCount < selectedIds.length) {
+          toast({
+            title: "Some moves failed",
+            description: `${selectedIds.length - successCount} images could not be moved to bin.`,
+            variant: "destructive"
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Bulk delete failed:', error);
+      toast({
+        title: "Bulk Delete Failed",
+        description: "Failed to connect to the server.",
+        variant: "destructive"
       });
     }
     
@@ -467,10 +756,6 @@ export default function GalleryLayout() {
       });
       setIsBulkExportDialogOpen(false);
     }
-  };
-
-  const handleCloudSync = () => {
-    setIsCloudSyncDialogOpen(true);
   };
 
   const displayedImages = useMemo(() => {
@@ -564,6 +849,18 @@ export default function GalleryLayout() {
     };
   }, [selectionMode, selectedImageIds, displayedImages, handleBulkDelete, handleBulkExport, handleSelectAll, handleUnselectAll, allSelected]);
 
+  // Show loading state while data is being fetched
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center space-y-4">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+          <p className="text-muted-foreground">Loading your gallery...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <SidebarProvider>
       <Sidebar collapsible="icon">
@@ -572,6 +869,7 @@ export default function GalleryLayout() {
           activeView={activeView}
           setActiveView={handleChangeActiveView}
           onCreateFolder={handleCreateFolder}
+          onDeleteFolder={handleDeleteFolder}
           onImageDrop={handleImageDrop}
           onFileUpload={handleFileUpload}
         />
@@ -590,7 +888,6 @@ export default function GalleryLayout() {
             onOpenSharedGalleries={() => setIsSharedGalleriesOpen(true)}
             onBulkDelete={handleBulkDelete}
             onBulkExport={handleBulkExport}
-            onCloudSync={handleCloudSync}
             onSelectAll={handleSelectAll}
             onUnselectAll={handleUnselectAll}
             totalVisibleImages={displayedImages.length}
@@ -625,7 +922,11 @@ export default function GalleryLayout() {
       <ShareDialog
         isOpen={isShareDialogOpen}
         onOpenChange={setIsShareDialogOpen}
-        onShare={handleShare}
+        selectedImages={images.filter(img => selectedImageIds.has(img.id)).map(img => ({
+          id: img.id,
+          dataUri: img.dataUri,
+          name: img.name
+        }))}
         selectedImageCount={selectedImageIds.size}
       />
       <SharedGalleriesManager
@@ -649,11 +950,6 @@ export default function GalleryLayout() {
       <SettingsDialog
         isOpen={isSettingsOpen}
         onOpenChange={setIsSettingsOpen}
-      />
-      <CloudSyncDialog
-        isOpen={isCloudSyncDialogOpen}
-        onOpenChange={setIsCloudSyncDialogOpen}
-        images={images.filter(img => selectedImageIds.has(img.id))}
       />
     </SidebarProvider>
   );

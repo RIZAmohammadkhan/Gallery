@@ -2,7 +2,7 @@
 
 import type { ChangeEvent } from 'react';
 import { useState } from "react";
-import { Folder as FolderIcon, Plus, Trash2, LayoutGrid, HelpCircle, UploadCloud } from "lucide-react";
+import { Folder as FolderIcon, Plus, Trash2, LayoutGrid, HelpCircle, UploadCloud, X } from "lucide-react";
 import {
   SidebarHeader,
   SidebarContent,
@@ -32,11 +32,12 @@ interface AppSidebarProps {
   activeView: string;
   setActiveView: (view: string) => void;
   onCreateFolder: (name: string) => void;
+  onDeleteFolder: (folderId: string) => void;
   onImageDrop: (folderId: string | null, imageId: string) => void;
   onFileUpload: (event: ChangeEvent<HTMLInputElement>) => void;
 }
 
-export default function AppSidebar({ folders, activeView, setActiveView, onCreateFolder, onImageDrop, onFileUpload }: AppSidebarProps) {
+export default function AppSidebar({ folders, activeView, setActiveView, onCreateFolder, onDeleteFolder, onImageDrop, onFileUpload }: AppSidebarProps) {
   const [newFolderName, setNewFolderName] = useState("");
   const [isNewFolderDialogOpen, setIsNewFolderDialogOpen] = useState(false);
   const [isDragOver, setIsDragOver] = useState<string | null>(null);
@@ -101,21 +102,34 @@ export default function AppSidebar({ folders, activeView, setActiveView, onCreat
         <SidebarMenu>
           {folders.map((folder) => (
             <SidebarMenuItem key={folder.id}>
-              <SidebarMenuButton
-                onClick={() => setActiveView(folder.id)}
-                isActive={activeView === folder.id}
-                tooltip={folder.name}
-                onDrop={(e) => handleDrop(e, folder.id)}
-                onDragOver={(e) => handleDragOver(e, folder.id)}
-                onDragLeave={handleDragLeave}
-                className={cn(
-                  "transition-colors",
-                  isDragOver === folder.id && "bg-accent/50"
-                )}
-              >
-                <FolderIcon />
-                <span>{folder.name}</span>
-              </SidebarMenuButton>
+              <div className="flex items-center group">
+                <SidebarMenuButton
+                  onClick={() => setActiveView(folder.id)}
+                  isActive={activeView === folder.id}
+                  tooltip={folder.name}
+                  onDrop={(e) => handleDrop(e, folder.id)}
+                  onDragOver={(e) => handleDragOver(e, folder.id)}
+                  onDragLeave={handleDragLeave}
+                  className={cn(
+                    "transition-colors flex-1",
+                    isDragOver === folder.id && "bg-accent/50"
+                  )}
+                >
+                  <FolderIcon />
+                  <span>{folder.name}</span>
+                </SidebarMenuButton>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDeleteFolder(folder.id);
+                  }}
+                  className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive/20 hover:text-destructive"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
             </SidebarMenuItem>
           ))}
         </SidebarMenu>

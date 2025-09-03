@@ -9,7 +9,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { GalleryHorizontal, Download, ExternalLink, Clock, Eye, AlertCircle } from 'lucide-react';
-import { getSharedGallery, type SharedGallery } from '@/lib/sharing';
+import type { SharedGallery } from '@/lib/sharing-client';
 
 export default function SharedGalleryPage() {
   const params = useParams();
@@ -20,19 +20,24 @@ export default function SharedGalleryPage() {
 
   useEffect(() => {
     if (shareId) {
-      try {
-        const sharedGallery = getSharedGallery(shareId);
-        if (sharedGallery) {
-          setGallery(sharedGallery);
-        } else {
-          setError("Gallery not found or has expired");
+      const loadGallery = async () => {
+        try {
+          const response = await fetch(`/api/share/${shareId}`);
+          if (response.ok) {
+            const sharedGallery = await response.json();
+            setGallery(sharedGallery);
+          } else {
+            setError("Gallery not found or has expired");
+          }
+        } catch (err) {
+          setError("Failed to load gallery");
+          console.error("Error loading shared gallery:", err);
+        } finally {
+          setLoading(false);
         }
-      } catch (err) {
-        setError("Failed to load gallery");
-        console.error("Error loading shared gallery:", err);
-      } finally {
-        setLoading(false);
-      }
+      };
+      
+      loadGallery();
     } else {
       setError("Invalid share link");
       setLoading(false);

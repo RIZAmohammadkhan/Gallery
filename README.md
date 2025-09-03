@@ -1,91 +1,182 @@
-# Intelligent AI Photo Gallery
+# AI Gallery - Production Ready
 
-This is a modern, responsive photo gallery application built with Next.js and powered by Google's Gemini AI models through Genkit. It provides intelligent features to automatically organize, analyze, search, and edit your images.
+A production-ready, open-source AI-powered photo gallery application built with Next.js. Features intelligent photo organization, advanced search capabilities, and secure user authentication.
 
-## Key Features
+## 🚀 Features
 
-- **AI-Powered Analysis**: When you upload an image, the app automatically generates a descriptive title, a detailed paragraph of metadata, and relevant tags.
-- **Automatic Categorization**: The AI analyzes new uploads and intelligently moves them into the most relevant user-created folder.
-- **Defective Image Detection**: The app can identify and flag potentially blurry, low-quality, or accidental photos, moving them to a separate 'Bin' for review.
-- **Advanced Natural Language Search**: Go beyond simple tags. You can search your gallery using complex, natural language queries like "blurry photos of the city" or "best shots of nature."
-- **AI-Powered Editing**: Edit images by simply describing the changes you want to make (e.g., "make the sky purple and add a cat on the bench").
-- **Modern, Responsive UI**: The interface is built with Tailwind CSS and ShadCN UI components, featuring a clean, dark theme that looks great on any device.
-- **Drag-and-Drop Organization**: Easily move images between folders, into the 'Uncategorized' section, or to the 'Bin' with a simple drag-and-drop interface.
-- **Image Selection & Sharing**: Select multiple images and generate a temporary, shareable link to show them off to others.
-- **Bulk Operations**: Select multiple images to move them to the Bin at once or export them as a ZIP file for easy downloading and sharing.
-- **Keyboard Shortcuts**: Use keyboard shortcuts for efficient navigation and bulk operations (Ctrl/Cmd+A to toggle select all/none, Delete to move to bin, Ctrl/Cmd+E to export, Escape to exit selection mode).
-- **🆕 Cloud Storage Integration**: Backup and sync your images with Google Drive, Dropbox, or OneDrive for cross-device access and data safety.
-- **🆕 UI-Based API Configuration**: Configure your Gemini AI API key directly through the web interface - no environment variables needed!
-- **🆕 Open Source Ready**: Easy deployment and setup for anyone - just enter your API key and start using!
+### Core Features
+- **🔐 User Authentication** - Secure signup/signin with NextAuth.js
+- **☁️ Database Storage** - MongoDB integration for scalable data storage
+- **📁 File Management** - Secure file upload and storage with optimization
+- **🤖 AI-Powered Analysis** - Automatic image metadata and tagging with Google Gemini
+- **🔍 Smart Search** - Natural language search across your photo collection
+- **📂 Folder Organization** - Create and manage custom folders
+- **🗂️ Auto-Categorization** - AI automatically sorts photos into relevant folders
+- **🚫 Defect Detection** - Identify and separate blurry or low-quality images
+- **✏️ AI Image Editing** - Edit photos using natural language descriptions
+- **🔗 Photo Sharing** - Generate temporary shareable links for galleries
+- **📦 Bulk Operations** - Select, delete, and export multiple photos as ZIP files
 
-## Tech Stack
+### Production Features
+- **🔒 Security** - JWT-based authentication, secure file handling
+- **📈 Scalability** - MongoDB Atlas support, Docker deployment
+- **� Multi-deployment** - Vercel, Docker, or traditional server deployment
+- **⚡ Performance** - Image optimization, caching, and efficient data loading
+- **🛠️ Monitoring** - Error handling and logging for production environments
 
-- **Framework**: [Next.js](https://nextjs.org/) (with App Router)
-- **UI Library**: [React](https://react.dev/)
-- **Language**: [TypeScript](https://www.typescriptlang.org/)
-- **Styling**: [Tailwind CSS](https://tailwindcss.com/) & [ShadCN UI](https://ui.shadcn.com/)
-- **AI Integration**: [Genkit](https://firebase.google.com/docs/genkit) with Google's Gemini models.
-- **Icons**: [Lucide React](https://lucide.dev/)
+## 📋 Prerequisites
 
-## Getting Started
+- **Node.js** 18+ 
+- **MongoDB** (local installation or MongoDB Atlas account)
+- **Google AI API Key** - Get one from [Google AI Studio](https://aistudio.google.com/app/apikey)
 
-### Prerequisites
+## 🚀 Quick Start
 
-- [Node.js](https://nodejs.org/en) (v18 or later recommended)
-- A Google AI API key. You can get one from [Google AI Studio](https://aistudio.google.com/app/apikey).
+### 1. Clone and Install
 
-### Installation & Setup
+```bash
+git clone <your-repo-url>
+cd ai-gallery
+npm install
+```
 
-1.  **Clone the repository (or download the source code).**
+### 2. Environment Setup
 
-2.  **Install dependencies:**
-    ```bash
-    npm install
-    ```
+```bash
+cp .env.example .env
+```
 
-3.  **🆕 Quick Start (Recommended):**
-    - Run the development server: `npm run dev`
-    - Open [http://localhost:9002](http://localhost:9002)
-    - Click the ⚙️ Settings button in the top header
-    - Go to "API Keys" tab and enter your Google AI API key
-    - Get your key from [Google AI Studio](https://aistudio.google.com/app/apikey)
-    - Start using the app immediately!
+Edit `.env` with your configuration:
 
-4.  **Alternative: Environment Variables (Optional):**
-    Create a file named `.env` in the root of the project and add your Google AI API key:
-    ```
-    GEMINI_API_KEY=YOUR_API_KEY_HERE
-    ```
-    Note: UI settings will override environment variables.
+```env
+# Database (use MongoDB Atlas for production)
+MONGODB_URI=mongodb://localhost:27017/ai-gallery
 
-5.  **Run the development server:**
-    ```bash
-    npm run dev
-    ```
+# Authentication
+NEXTAUTH_URL=http://localhost:9002
+NEXTAUTH_SECRET=your-super-secret-key-change-this
 
-The application will be available at [http://localhost:9002](http://localhost:9002).
+# Google AI API Key
+GEMINI_API_KEY=your-google-ai-api-key
 
-## 🆕 New Features
+# File Upload (10MB default)
+MAX_FILE_SIZE=10485760
+```
 
-### Cloud Storage Integration
-Back up and sync your gallery images to the cloud:
-- **Google Drive** - Seamless integration with Google Drive
-- **Dropbox** - Backup to Dropbox cloud storage  
-- **OneDrive** - Sync with Microsoft OneDrive
+### 3. Database Setup
 
-Access cloud sync through the ☁️ button in the header or configure providers in Settings → Cloud Storage.
+**Option A: Local MongoDB**
+```bash
+# Install and start MongoDB locally
+mongod --dbpath ./data/db
+```
 
-### UI-Based Configuration
-No more environment variable setup required:
-- **API Key Management** - Enter your Gemini AI key directly in the app
-- **Visual Interface** - Toggle password visibility, real-time validation
-- **Persistent Settings** - Configuration saved automatically in browser
-- **Open Source Ready** - Anyone can deploy and use with just their API keys
+**Option B: MongoDB Atlas (Recommended)**
+1. Create account at [MongoDB Atlas](https://www.mongodb.com/atlas)
+2. Create cluster and get connection string
+3. Update `MONGODB_URI` in `.env`
 
-### Enhanced User Experience
-- **Professional UI** - Redesigned interface with proper spacing and responsive design
-- **Bulk Operations** - Delete multiple images to bin or export as ZIP files
-- **Keyboard Shortcuts** - Efficient workflow with keyboard shortcuts
-- **Settings Management** - Comprehensive settings panel for all configuration
+### 4. Run Development Server
 
-For detailed documentation, see [Cloud Storage Guide](./docs/CLOUD_STORAGE_GUIDE.md).
+```bash
+npm run dev
+```
+
+Visit [http://localhost:9002](http://localhost:9002) and:
+1. Sign up for a new account
+2. Sign in to access your gallery
+3. Upload photos and explore AI features!
+
+## 🐳 Production Deployment
+
+### Docker (Recommended)
+
+```bash
+# Build and run with Docker Compose
+docker-compose up -d
+```
+
+### Vercel
+
+1. Push code to GitHub
+2. Connect repository to Vercel
+3. Add environment variables in Vercel dashboard
+4. Deploy!
+
+### Traditional Server
+
+```bash
+npm run build
+npm start
+```
+
+See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed deployment instructions.
+
+## 🏗️ Architecture
+
+```
+├── src/
+│   ├── app/                 # Next.js App Router
+│   │   ├── api/            # API routes
+│   │   ├── auth/           # Authentication pages
+│   │   └── share/          # Public sharing pages
+│   ├── components/         # React components
+│   ├── lib/               # Utilities and services
+│   │   ├── auth.ts        # NextAuth configuration
+│   │   ├── database.ts    # Database service
+│   │   └── mongodb.ts     # MongoDB connection
+│   └── ai/                # AI integration
+├── uploads/               # File storage (create automatically)
+├── docs/                  # Documentation
+└── deployment files      # Docker, env examples
+```
+
+## 🔧 Configuration
+
+### Environment Variables
+
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `MONGODB_URI` | MongoDB connection string | ✅ |
+| `NEXTAUTH_SECRET` | Secret for JWT tokens | ✅ |
+| `NEXTAUTH_URL` | Your app's URL | ✅ |
+| `GEMINI_API_KEY` | Google AI API key | ✅ |
+| `MAX_FILE_SIZE` | Max upload size in bytes | ❌ |
+
+### Security Features
+
+- 🔐 Password hashing with bcrypt
+- 🛡️ JWT-based session management
+- 🚫 File type validation
+- 📏 File size limits
+- 🔒 User data isolation
+- 🛡️ SQL injection prevention
+
+## 🔌 API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/auth/register` | POST | User registration |
+| `/api/auth/[...nextauth]` | GET/POST | Authentication |
+| `/api/upload` | POST | File upload |
+| `/api/images` | GET/PUT/DELETE | Image management |
+| `/api/folders` | GET/POST/DELETE | Folder management |
+| `/api/uploads/[filename]` | GET | File serving |
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/new-feature`
+3. Commit changes: `git commit -am 'Add new feature'`
+4. Push to branch: `git push origin feature/new-feature`
+5. Submit a pull request
+
+## 📄 License
+
+This project is open source and available under the [MIT License](LICENSE).
+
+## 🆘 Support
+
+- 📖 Check [DEPLOYMENT.md](./DEPLOYMENT.md) for deployment help
+- 🐛 Report issues on GitHub
+- 💡 Feature requests welcome!
