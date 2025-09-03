@@ -1,7 +1,8 @@
 "use client";
 
+import type { ChangeEvent } from 'react';
 import { useState } from "react";
-import { Folder as FolderIcon, Plus, Trash2, LayoutGrid, HelpCircle } from "lucide-react";
+import { Folder as FolderIcon, Plus, Trash2, LayoutGrid, HelpCircle, UploadCloud } from "lucide-react";
 import {
   SidebarHeader,
   SidebarContent,
@@ -32,9 +33,10 @@ interface AppSidebarProps {
   setActiveView: (view: string) => void;
   onCreateFolder: (name: string) => void;
   onImageDrop: (folderId: string | null, imageId: string) => void;
+  onFileUpload: (event: ChangeEvent<HTMLInputElement>) => void;
 }
 
-export default function AppSidebar({ folders, activeView, setActiveView, onCreateFolder, onImageDrop }: AppSidebarProps) {
+export default function AppSidebar({ folders, activeView, setActiveView, onCreateFolder, onImageDrop, onFileUpload }: AppSidebarProps) {
   const [newFolderName, setNewFolderName] = useState("");
   const [isNewFolderDialogOpen, setIsNewFolderDialogOpen] = useState(false);
   const [isDragOver, setIsDragOver] = useState<string | null>(null);
@@ -135,7 +137,14 @@ export default function AppSidebar({ folders, activeView, setActiveView, onCreat
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarContent>
-      <SidebarFooter>
+      <SidebarFooter className="space-y-2">
+        <Button asChild className="w-full">
+            <label htmlFor="file-upload">
+                <UploadCloud className="mr-2 h-4 w-4" />
+                Upload
+                <input id="file-upload" type="file" className="sr-only" onChange={onFileUpload} accept="image/*" />
+            </label>
+        </Button>
         <Dialog open={isNewFolderDialogOpen} onOpenChange={setIsNewFolderDialogOpen}>
           <DialogTrigger asChild>
             <Button variant="outline" className="w-full">

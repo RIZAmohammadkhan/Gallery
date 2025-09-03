@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, ChangeEvent, useEffect } from "react";
-import { SidebarProvider, Sidebar, SidebarInset } from "@/components/ui/sidebar";
+import { SidebarProvider, Sidebar, SidebarInset, SidebarRail } from "@/components/ui/sidebar";
 import { Folder, StoredImage } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 
@@ -301,19 +301,20 @@ export default function GalleryLayout() {
 
   return (
     <SidebarProvider>
-      <Sidebar>
+      <Sidebar collapsible="icon">
         <AppSidebar
           folders={folders}
           activeView={activeView}
           setActiveView={handleChangeActiveView}
           onCreateFolder={handleCreateFolder}
           onImageDrop={handleImageDrop}
+          onFileUpload={handleFileUpload}
         />
+        <SidebarRail />
       </Sidebar>
       <SidebarInset>
         <div className="flex flex-col h-screen">
           <AppHeader
-            onFileUpload={handleFileUpload}
             onSearch={setSearchQuery}
             isSearching={isSearching}
             searchQuery={searchQuery}
