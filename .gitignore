@@ -39,12 +39,26 @@ next-env.d.ts
 
 .genkit/*
 
-# Environment variables
+# Environment variables - CRITICAL: Never commit secrets!
 .env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
+.env.docker
+
+# Security sensitive files
+*.key
+*.pem
+secrets/
+private/
+*.p12
+*.pfx
+
+# Docker volumes and data
+docker-data/
+data/
+uploads/
 
 # firebase
 firebase-debug.log
@@ -62,6 +76,3 @@ pids
 
 # Coverage directory used by tools like istanbul
 coverage/
-
-# docker
-.env.docker
