@@ -46,11 +46,13 @@ export default function GalleryLayout() {
   
   // Debounce search
   useEffect(() => {
+    setIsSearching(!!searchQuery);
     const handler = setTimeout(() => {
         if (searchQuery) {
             performSearch(searchQuery);
         } else {
             setSearchResults(null);
+            setIsSearching(false);
         }
     }, 500); // 500ms delay
 
@@ -168,7 +170,7 @@ export default function GalleryLayout() {
         setSearchResults(null);
         return;
     }
-    setIsSearching(true);
+    
     try {
         const imageMetadata = images
             .map(img => ({ filename: img.id, description: `${img.name} ${img.metadata} ${img.tags?.join(' ')}` }));
@@ -264,7 +266,7 @@ export default function GalleryLayout() {
 
   const displayedImages = useMemo(() => {
     const sourceImages = searchResults
-      ? images.filter(img => new Set(searchResults).has(img.id))
+      ? images.filter(img => searchResults.includes(img.id))
       : images;
       
     if (searchQuery && searchResults) {
