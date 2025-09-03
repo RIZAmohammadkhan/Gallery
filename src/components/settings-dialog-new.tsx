@@ -39,9 +39,10 @@ import { AppSettings } from "@/lib/settings";
 interface SettingsDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
+  onProcessImages: () => void;
 }
 
-export function SettingsDialog({ isOpen, onOpenChange }: SettingsDialogProps) {
+export function SettingsDialog({ isOpen, onOpenChange, onProcessImages }: SettingsDialogProps) {
   const { settings: contextSettings, settingsManager } = useSettings();
   const [settings, setSettings] = useState<AppSettings>(contextSettings);
   const [showApiKey, setShowApiKey] = useState(false);
@@ -88,10 +89,14 @@ export function SettingsDialog({ isOpen, onOpenChange }: SettingsDialogProps) {
         </DialogHeader>
 
         <Tabs defaultValue="api" className="w-full">
-          <TabsList className="grid w-full grid-cols-1">
+          <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="api" className="flex items-center gap-2">
               <Bot className="h-4 w-4" />
               API Configuration
+            </TabsTrigger>
+            <TabsTrigger value="images" className="flex items-center gap-2">
+              <Info className="h-4 w-4" />
+              Image Processing
             </TabsTrigger>
           </TabsList>
 
@@ -147,6 +152,49 @@ export function SettingsDialog({ isOpen, onOpenChange }: SettingsDialogProps) {
                         Google AI Studio
                       </a>.</p>
                       <p className="mt-1">This key is used for AI-powered image analysis, categorization, and metadata generation.</p>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="images" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>AI Image Processing</CardTitle>
+                <CardDescription>
+                  Process images to ensure all have AI-generated metadata, tags, and defect detection.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-3">
+                  <p className="text-sm text-muted-foreground">
+                    This will scan all images in your gallery and add AI-generated information to any images that are missing:
+                  </p>
+                  <ul className="text-sm text-muted-foreground space-y-1 ml-4">
+                    <li>• Descriptive metadata</li>
+                    <li>• Relevant tags</li>
+                    <li>• Descriptive titles</li>
+                    <li>• Defect detection (blurriness, quality issues)</li>
+                  </ul>
+                  <div className="pt-2">
+                    <Button 
+                      onClick={() => {
+                        onProcessImages();
+                        onOpenChange(false);
+                      }}
+                      className="w-full"
+                    >
+                      <Bot className="mr-2 h-4 w-4" />
+                      Process All Images
+                    </Button>
+                  </div>
+                  <div className="flex items-start gap-2 text-sm text-muted-foreground">
+                    <Info className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p>This process may take some time depending on the number of images without AI info.</p>
+                      <p className="mt-1">Images are processed automatically when uploaded, but this can help ensure older images have complete information.</p>
                     </div>
                   </div>
                 </div>

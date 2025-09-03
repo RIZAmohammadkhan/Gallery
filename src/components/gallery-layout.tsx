@@ -22,7 +22,7 @@ import { ShareDialog } from "./share-dialog";
 import { SharedGalleriesManager } from "./shared-galleries-manager";
 import { BulkDeleteDialog } from "./bulk-delete-dialog";
 import { BulkExportDialog } from "./bulk-export-dialog";
-import { SettingsDialog } from "./settings-dialog";
+import { SettingsDialog } from "./settings-dialog-new";
 import { exportImagesAsZip } from "@/lib/bulk-operations";
 
 // Helper function to convert file URL to data URI for AI processing
@@ -113,6 +113,99 @@ export default function GalleryLayout() {
 
     loadData();
   }, [toast]);
+
+  // Process images without AI info on load
+  useEffect(() => {
+    const processImagesWithoutAI = async () => {
+      const imagesToProcess = images.filter(img => 
+        !img.metadata || img.metadata.trim() === '' || 
+        !img.tags || img.tags.length === 0
+      );
+
+      if (imagesToProcess.length === 0) return;
+
+      console.log(`Processing ${imagesToProcess.length} images without AI info...`);
+      
+      // Show toast notification for automatic processing
+      if (imagesToProcess.length > 1) {
+        toast({
+          title: "Background Processing",
+          description: `Automatically processing ${imagesToProcess.length} images to add AI information.`,
+        });
+      }
+
+      // Process in batches of 3 to avoid overwhelming the API
+      const batchSize = 3;
+      for (let i = 0; i < imagesToProcess.length; i += batchSize) {
+        const batch = imagesToProcess.slice(i, i + batchSize);
+        
+        // Process batch in parallel
+        const batchPromises = batch.map(async (image) => {
+          if (loadingStates[image.id]) return; // Skip if already processing
+
+          setLoadingStates(prev => ({ ...prev, [image.id]: "Generating AI info..." }));
+
+          try {
+            // Convert file URL to data URI for AI processing
+            const imageDataUri = await convertFileUrlToDataUri(image.dataUri);
+            
+            const [metadataRes, defectRes] = await Promise.all([
+              generateImageMetadata({ photoDataUri: imageDataUri }),
+              detectDefectiveImages({ photoDataUri: imageDataUri }),
+            ]);
+            
+            // Update image with AI analysis results
+            const imageUpdates = {
+              name: metadataRes.title,
+              metadata: metadataRes.metadata,
+              tags: metadataRes.tags,
+              isDefective: defectRes.isDefective,
+              defectType: defectRes.defectType,
+            };
+
+            // Update in database
+            const updateResponse = await fetch('/api/images', {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                imageId: image.id,
+                ...imageUpdates
+              }),
+            });
+
+            if (updateResponse.ok) {
+              // Update local state
+              setImages(prev => prev.map(img => 
+                img.id === image.id ? { ...img, ...imageUpdates } : img
+              ));
+            }
+          } catch (error) {
+            console.error(`Failed to process image ${image.id}:`, error);
+          } finally {
+            setLoadingStates(prev => {
+              const next = { ...prev };
+              delete next[image.id];
+              return next;
+            });
+          }
+        });
+
+        // Wait for current batch to complete before starting next batch
+        await Promise.all(batchPromises);
+        
+        // Small delay between batches to be respectful to the API
+        if (i + batchSize < imagesToProcess.length) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
+    };
+
+    if (images.length > 0 && !isLoading) {
+      processImagesWithoutAI();
+    }
+  }, [images, isLoading, loadingStates, toast]);
   
   // Debounce search
   useEffect(() => {
@@ -758,6 +851,104 @@ export default function GalleryLayout() {
     }
   };
 
+  const handleProcessAllImages = async () => {
+    const imagesToProcess = images.filter(img => 
+      !img.metadata || img.metadata.trim() === '' || 
+      !img.tags || img.tags.length === 0
+    );
+
+    if (imagesToProcess.length === 0) {
+      toast({
+        title: "All Images Processed",
+        description: "All images already have AI-generated information.",
+      });
+      return;
+    }
+
+    toast({
+      title: "Processing Images",
+      description: `Starting AI processing for ${imagesToProcess.length} images. This may take a few minutes.`,
+    });
+
+    let processedCount = 0;
+    const batchSize = 3; // Process in smaller batches for better UX
+    
+    for (let i = 0; i < imagesToProcess.length; i += batchSize) {
+      const batch = imagesToProcess.slice(i, i + batchSize);
+      
+      const batchPromises = batch.map(async (image) => {
+        if (loadingStates[image.id]) return; // Skip if already processing
+
+        setLoadingStates(prev => ({ ...prev, [image.id]: "Generating AI info..." }));
+
+        try {
+          // Convert file URL to data URI for AI processing
+          const imageDataUri = await convertFileUrlToDataUri(image.dataUri);
+          
+          const [metadataRes, defectRes] = await Promise.all([
+            generateImageMetadata({ photoDataUri: imageDataUri }),
+            detectDefectiveImages({ photoDataUri: imageDataUri }),
+          ]);
+          
+          // Update image with AI analysis results
+          const imageUpdates = {
+            name: metadataRes.title,
+            metadata: metadataRes.metadata,
+            tags: metadataRes.tags,
+            isDefective: defectRes.isDefective,
+            defectType: defectRes.defectType,
+          };
+
+          // Update in database
+          const updateResponse = await fetch('/api/images', {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              imageId: image.id,
+              ...imageUpdates
+            }),
+          });
+
+          if (updateResponse.ok) {
+            // Update local state
+            setImages(prev => prev.map(img => 
+              img.id === image.id ? { ...img, ...imageUpdates } : img
+            ));
+            processedCount++;
+          }
+        } catch (error) {
+          console.error(`Failed to process image ${image.id}:`, error);
+        } finally {
+          setLoadingStates(prev => {
+            const next = { ...prev };
+            delete next[image.id];
+            return next;
+          });
+        }
+      });
+
+      // Wait for current batch to complete
+      await Promise.all(batchPromises);
+      
+      // Show progress update
+      if (i + batchSize < imagesToProcess.length) {
+        toast({
+          title: "Processing Progress",
+          description: `Processed ${Math.min(i + batchSize, imagesToProcess.length)} of ${imagesToProcess.length} images...`,
+        });
+        // Small delay between batches
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+    }
+
+    toast({
+      title: "Processing Complete",
+      description: `Successfully processed ${processedCount} of ${imagesToProcess.length} images.`,
+    });
+  };
+
   const displayedImages = useMemo(() => {
     const sourceImages = searchResults
       ? images.filter(img => searchResults.includes(img.id))
@@ -950,6 +1141,7 @@ export default function GalleryLayout() {
       <SettingsDialog
         isOpen={isSettingsOpen}
         onOpenChange={setIsSettingsOpen}
+        onProcessImages={handleProcessAllImages}
       />
     </SidebarProvider>
   );

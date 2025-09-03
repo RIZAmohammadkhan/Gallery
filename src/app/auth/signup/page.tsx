@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSession, signIn } from 'next-auth/react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,6 +21,29 @@ export default function SignUp() {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
+  const { data: session, status } = useSession();
+
+  // Redirect authenticated users to home page
+  useEffect(() => {
+    if (status === 'authenticated') {
+      router.push('/');
+      router.refresh();
+    }
+  }, [status, router]);
+
+  // Show loading spinner while checking authentication
+  if (status === 'loading') {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
+  // Don't render the form if user is authenticated
+  if (status === 'authenticated') {
+    return null;
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,7 +67,7 @@ export default function SignUp() {
         },
         body: JSON.stringify({
           name,
-          email,
+          email: email.toLowerCase(), // Convert to lowercase for consistency
           password,
         }),
       });
@@ -53,9 +77,26 @@ export default function SignUp() {
       if (response.ok) {
         toast({
           title: 'Success',
-          description: 'Account created successfully! Please sign in.',
+          description: 'Account created successfully! Signing you in...',
         });
-        router.push('/auth/signin');
+        
+        // Automatically sign in the user after successful registration
+        const signInResult = await signIn('credentials', {
+          email: email.toLowerCase(),
+          password,
+          callbackUrl: '/',
+          redirect: true,
+        });
+
+        // If we reach here, signin failed
+        if (signInResult?.error) {
+          // If auto-signin fails, redirect to signin page
+          toast({
+            title: 'Account created',
+            description: 'Please sign in with your new account.',
+          });
+          router.push('/auth/signin');
+        }
       } else {
         toast({
           title: 'Error',

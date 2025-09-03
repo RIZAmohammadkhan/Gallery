@@ -24,7 +24,10 @@ export const authOptions: NextAuthOptions = {
           
           const users = client.db().collection<User>('users');
           
-          const user = await users.findOne({ email: credentials.email });
+          // Make email case-insensitive by converting to lowercase
+          const user = await users.findOne({ 
+            email: { $regex: new RegExp(`^${credentials.email}$`, 'i') }
+          });
           
           if (!user) {
             return null;
@@ -65,6 +68,22 @@ export const authOptions: NextAuthOptions = {
         session.user.id = token.id as string;
       }
       return session;
+    },
+    async redirect({ url, baseUrl }) {
+      // If user is signing in and no specific URL is provided, redirect to home
+      if (url === baseUrl + '/auth/signin' || url === baseUrl + '/auth/signup') {
+        return baseUrl;
+      }
+      // If it's a relative URL, make it absolute
+      if (url.startsWith('/')) {
+        return baseUrl + url;
+      }
+      // If it's the same origin, allow it
+      if (new URL(url).origin === baseUrl) {
+        return url;
+      }
+      // Otherwise, redirect to home
+      return baseUrl;
     },
   },
   pages: {

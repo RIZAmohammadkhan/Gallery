@@ -21,8 +21,10 @@ export async function POST(request: NextRequest) {
     
     const users = client.db().collection<User>('users');
 
-    // Check if user already exists
-    const existingUser = await users.findOne({ email });
+    // Check if user already exists (case-insensitive email)
+    const existingUser = await users.findOne({ 
+      email: { $regex: new RegExp(`^${email}$`, 'i') }
+    });
     if (existingUser) {
       return NextResponse.json(
         { error: 'User already exists with this email' },
@@ -33,10 +35,10 @@ export async function POST(request: NextRequest) {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 12);
 
-    // Create user
+    // Create user with lowercase email for consistency
     const newUser: Omit<User, '_id'> = {
       name,
-      email,
+      email: email.toLowerCase(),
       password: hashedPassword,
       createdAt: new Date(),
       updatedAt: new Date(),

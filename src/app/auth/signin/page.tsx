@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { signIn, getSession } from 'next-auth/react';
+import { useState, useEffect } from 'react';
+import { signIn, useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -18,6 +18,29 @@ export default function SignIn() {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
+  const { data: session, status } = useSession();
+
+  // Redirect authenticated users to home page
+  useEffect(() => {
+    if (status === 'authenticated') {
+      router.push('/');
+      router.refresh();
+    }
+  }, [status, router]);
+
+  // Show loading spinner while checking authentication
+  if (status === 'loading') {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
+  // Don't render the form if user is authenticated
+  if (status === 'authenticated') {
+    return null;
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,27 +48,20 @@ export default function SignIn() {
 
     try {
       const result = await signIn('credentials', {
-        email,
+        email: email.toLowerCase(),
         password,
-        redirect: false,
+        callbackUrl: '/',
+        redirect: true,
       });
-
+      
+      // If we reach here, there was an error (redirect: true would have redirected on success)
       if (result?.error) {
         toast({
           title: 'Error',
           description: 'Invalid email or password',
           variant: 'destructive',
         });
-      } else {
-        toast({
-          title: 'Success',
-          description: 'Signed in successfully',
-        });
-        
-        // Refresh session and redirect
-        await getSession();
-        router.push('/');
-        router.refresh();
+        setIsLoading(false);
       }
     } catch (error) {
       toast({
@@ -53,7 +69,6 @@ export default function SignIn() {
         description: 'Something went wrong. Please try again.',
         variant: 'destructive',
       });
-    } finally {
       setIsLoading(false);
     }
   };

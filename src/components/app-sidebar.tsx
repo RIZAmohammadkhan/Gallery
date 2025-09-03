@@ -26,6 +26,7 @@ import { Label } from "@/components/ui/label";
 import { Folder } from "@/lib/types";
 import { Separator } from "./ui/separator";
 import { cn } from "@/lib/utils";
+import { DeleteFolderDialog } from "./delete-folder-dialog";
 
 interface AppSidebarProps {
   folders: Folder[];
@@ -41,12 +42,27 @@ export default function AppSidebar({ folders, activeView, setActiveView, onCreat
   const [newFolderName, setNewFolderName] = useState("");
   const [isNewFolderDialogOpen, setIsNewFolderDialogOpen] = useState(false);
   const [isDragOver, setIsDragOver] = useState<string | null>(null);
+  const [deleteFolderId, setDeleteFolderId] = useState<string | null>(null);
+  const [deleteFolderName, setDeleteFolderName] = useState("");
 
   const handleCreate = () => {
     if (newFolderName.trim()) {
       onCreateFolder(newFolderName.trim());
       setNewFolderName("");
       setIsNewFolderDialogOpen(false);
+    }
+  };
+
+  const handleDeleteClick = (folderId: string, folderName: string) => {
+    setDeleteFolderId(folderId);
+    setDeleteFolderName(folderName);
+  };
+
+  const handleConfirmDelete = () => {
+    if (deleteFolderId) {
+      onDeleteFolder(deleteFolderId);
+      setDeleteFolderId(null);
+      setDeleteFolderName("");
     }
   };
   
@@ -123,7 +139,7 @@ export default function AppSidebar({ folders, activeView, setActiveView, onCreat
                   size="sm"
                   onClick={(e) => {
                     e.stopPropagation();
-                    onDeleteFolder(folder.id);
+                    handleDeleteClick(folder.id, folder.name);
                   }}
                   className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive/20 hover:text-destructive"
                 >
@@ -194,6 +210,16 @@ export default function AppSidebar({ folders, activeView, setActiveView, onCreat
           </DialogContent>
         </Dialog>
       </SidebarFooter>
+
+      <DeleteFolderDialog
+        isOpen={deleteFolderId !== null}
+        onOpenChange={() => {
+          setDeleteFolderId(null);
+          setDeleteFolderName("");
+        }}
+        onConfirm={handleConfirmDelete}
+        folderName={deleteFolderName}
+      />
     </>
   );
 }
