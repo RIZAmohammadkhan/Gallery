@@ -35,6 +35,8 @@ export async function editImage(input: EditImageInput): Promise<EditImageOutput>
   return editImageFlow(input);
 }
 
+// Unused prompt template - keeping for future reference
+/*
 const editImagePrompt = ai.definePrompt({
   name: 'editImagePrompt',
   input: {schema: EditImageInputSchema},
@@ -47,6 +49,7 @@ Image: {{media url=photoDataUri}}
 Please return the edited image as a data URI.
 `,
 });
+*/
 
 const editImageFlow = ai.defineFlow(
   {

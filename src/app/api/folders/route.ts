@@ -4,7 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { DatabaseService } from '@/lib/database';
 import { v4 as uuidv4 } from 'uuid';
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {

@@ -36,7 +36,7 @@ export async function GET(
       return NextResponse.json({ error: 'Image data not found' }, { status: 404 });
     }
 
-    return new NextResponse(imageStorage.data as any, {
+    return new NextResponse(new Uint8Array(imageStorage.data), {
       headers: {
         'Content-Type': imageStorage.mimeType,
         'Cache-Control': 'private, max-age=3600', // Cache for 1 hour but keep private

@@ -1,6 +1,6 @@
 "use client";
 
-import { GalleryHorizontal, Search, Share2, X, History, Trash2, Download, CheckSquare, Settings } from "lucide-react";
+import { GalleryHorizontal, Search, Share2, X, History, Trash2, Download, CheckSquare } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "./ui/button";
 import { UserMenu } from "./user-menu";

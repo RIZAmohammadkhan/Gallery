@@ -4,7 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { cleanupExpiredGalleries } from '@/lib/sharing';
 
 // POST - Cleanup expired galleries
-export async function POST(request: NextRequest) {
+export async function POST(_request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {

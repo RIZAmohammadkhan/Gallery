@@ -7,7 +7,7 @@ import GalleryLayout from '@/components/gallery-layout';
 import { Loader2 } from 'lucide-react';
 
 export default function Home() {
-  const { data: session, status } = useSession();
+  const { data: _session, status } = useSession();
   const router = useRouter();
 
   useEffect(() => {

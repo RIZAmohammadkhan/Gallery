@@ -151,7 +151,7 @@ export default function SharedGalleryPage() {
 
         {/* Image Grid */}
         <div className="columns-2 md:columns-3 lg:columns-4 xl:columns-5 gap-4">
-          {gallery.images.map((image, index) => (
+          {gallery.images.map((image, _index) => (
             <div key={image.id} className="break-inside-avoid mb-4">
               <Card className="overflow-hidden group">
                 <CardContent className="p-0 relative">
@@ -196,7 +196,7 @@ export default function SharedGalleryPage() {
           <div className="text-center py-12">
             <GalleryHorizontal className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-lg font-medium mb-2">No Images</h3>
-            <p className="text-muted-foreground">This gallery doesn't contain any images.</p>
+            <p className="text-muted-foreground">This gallery doesn&apos;t contain any images.</p>
           </div>
         )}
       </main>

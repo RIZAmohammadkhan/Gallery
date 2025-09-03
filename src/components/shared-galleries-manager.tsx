@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import Image from 'next/image';
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -27,7 +28,7 @@ export function SharedGalleriesManager({ isOpen, onOpenChange }: SharedGalleries
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
-  const loadGalleries = async () => {
+  const loadGalleries = useCallback(async () => {
     setLoading(true);
     try {
       // First cleanup expired galleries
@@ -51,13 +52,13 @@ export function SharedGalleriesManager({ isOpen, onOpenChange }: SharedGalleries
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
   useEffect(() => {
     if (isOpen) {
       loadGalleries();
     }
-  }, [isOpen]);
+  }, [isOpen, loadGalleries]);
 
   const handleDeleteGallery = async (shareId: string) => {
     try {
@@ -178,7 +179,7 @@ export function SharedGalleriesManager({ isOpen, onOpenChange }: SharedGalleries
                 <Share2 className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
                 <h3 className="text-lg font-medium mb-2">No Shared Galleries</h3>
                 <p className="text-sm text-muted-foreground">
-                  You haven't created any shared galleries yet. Select some images and use the share feature to get started.
+                  You haven&apos;t created any shared galleries yet. Select some images and use the share feature to get started.
                 </p>
               </div>
             ) : (
@@ -241,11 +242,13 @@ export function SharedGalleriesManager({ isOpen, onOpenChange }: SharedGalleries
                   <CardContent className="pt-0">
                     <div className="flex items-center justify-between">
                       <div className="flex gap-2 overflow-x-auto">
-                        {gallery.images.slice(0, 5).map((image, index) => (
-                          <img
+                        {gallery.images.slice(0, 5).map((image, _index) => (
+                          <Image
                             key={image.id}
                             src={image.dataUri}
                             alt={image.name}
+                            width={48}
+                            height={48}
                             className="w-12 h-12 object-cover rounded border flex-shrink-0"
                           />
                         ))}

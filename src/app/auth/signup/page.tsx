@@ -21,7 +21,7 @@ export default function SignUp() {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
-  const { data: session, status } = useSession();
+  const { data: _session, status } = useSession();
 
   // Redirect authenticated users to home page
   useEffect(() => {
@@ -104,7 +104,7 @@ export default function SignUp() {
           variant: 'destructive',
         });
       }
-    } catch (error) {
+    } catch (_error) {
       toast({
         title: 'Error',
         description: 'Something went wrong. Please try again.',

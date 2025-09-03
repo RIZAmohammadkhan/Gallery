@@ -26,9 +26,9 @@ export function DeleteFolderDialog({
     <AlertDialog open={isOpen} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Delete Folder "{folderName}"</AlertDialogTitle>
+          <AlertDialogTitle>Delete Folder &quot;{folderName}&quot;</AlertDialogTitle>
           <AlertDialogDescription>
-            Are you sure you want to delete this folder? All images in this folder will be moved to "Uncategorized". This action cannot be undone.
+            Are you sure you want to delete this folder? All images in this folder will be moved to &quot;Uncategorized&quot;. This action cannot be undone.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

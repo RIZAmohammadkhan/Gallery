@@ -14,7 +14,7 @@ export class DatabaseService {
       
       // Convert all images with their storage data
       const storedImages = await Promise.all(
-        userImages.map((img: any) => this.dbImageToStoredImage(img))
+        userImages.map((img) => this.dbImageToStoredImage(img as DbStoredImage))
       );
       
       return storedImages;
@@ -40,7 +40,7 @@ export class DatabaseService {
       const result = await images.insertOne(newImage);
       const inserted = await images.findOne({ _id: result.insertedId });
       
-      return inserted ? await this.dbImageToStoredImage(inserted as any) : null;
+      return inserted ? await this.dbImageToStoredImage(inserted as DbStoredImage) : null;
     } catch (error) {
       console.error('Error creating image:', error);
       return null;
@@ -97,7 +97,7 @@ export class DatabaseService {
       const folders = client.db().collection('folders');
       const userFolders = await folders.find({ userId: new ObjectId(userId) }).toArray();
       
-      return userFolders.map((folder: any) => this.dbFolderToFolder(folder));
+      return userFolders.map((folder) => this.dbFolderToFolder(folder as DbFolder));
     } catch (error) {
       console.error('Error fetching user folders:', error);
       return [];
@@ -120,7 +120,7 @@ export class DatabaseService {
       const result = await folders.insertOne(newFolder);
       const inserted = await folders.findOne({ _id: result.insertedId });
       
-      return inserted ? this.dbFolderToFolder(inserted as any) : null;
+      return inserted ? this.dbFolderToFolder(inserted as DbFolder) : null;
     } catch (error) {
       console.error('Error creating folder:', error);
       return null;
@@ -169,7 +169,14 @@ export class DatabaseService {
     }
   }
 
-  static async getSharedGallery(shareId: string): Promise<any | null> {
+  static async getSharedGallery(shareId: string): Promise<{
+    id: string;
+    title: string;
+    images: Array<{ id: string; name: string; dataUri: string }>;
+    createdAt: Date;
+    expiresAt?: Date;
+    accessCount: number;
+  } | null> {
     try {
       const client = await clientPromise;
       const galleries = client.db().collection('shared_galleries');
@@ -224,7 +231,14 @@ export class DatabaseService {
     }
   }
 
-  static async getUserSharedGalleries(userId: string): Promise<any[]> {
+  static async getUserSharedGalleries(userId: string): Promise<Array<{
+    id: string;
+    title: string;
+    images: Array<{ id: string; name: string; dataUri: string }>;
+    createdAt: Date;
+    expiresAt?: Date;
+    accessCount: number;
+  }>> {
     try {
       const client = await clientPromise;
       const galleries = client.db().collection('shared_galleries');
@@ -287,7 +301,7 @@ export class DatabaseService {
   }
 
   // User Settings
-  static async getUserSettings(userId: string): Promise<any> {
+  static async getUserSettings(userId: string): Promise<Record<string, unknown> | null> {
     try {
       const client = await clientPromise;
       const settings = client.db().collection('user_settings');
@@ -300,7 +314,7 @@ export class DatabaseService {
     }
   }
 
-  static async updateUserSettings(userId: string, settingsData: any): Promise<boolean> {
+  static async updateUserSettings(userId: string, settingsData: Record<string, unknown>): Promise<boolean> {
     try {
       const client = await clientPromise;
       const settings = client.db().collection('user_settings');
@@ -329,7 +343,7 @@ export class DatabaseService {
   }
 
   // Helper methods
-  private static async dbImageToStoredImage(dbImage: any): Promise<StoredImage> {
+  private static async dbImageToStoredImage(dbImage: DbStoredImage): Promise<StoredImage> {
     // Retrieve image data from storage
     const imageStorage = await SecureImageStorage.getImage(dbImage.storageId);
     const dataUri = imageStorage 
@@ -351,7 +365,7 @@ export class DatabaseService {
     };
   }
 
-  private static dbFolderToFolder(dbFolder: any): Folder {
+  private static dbFolderToFolder(dbFolder: DbFolder): Folder {
     return {
       id: dbFolder.id,
       name: dbFolder.name,

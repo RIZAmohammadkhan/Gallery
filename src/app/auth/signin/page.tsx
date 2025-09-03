@@ -18,7 +18,7 @@ export default function SignIn() {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
-  const { data: session, status } = useSession();
+  const { data: _session, status } = useSession();
 
   // Redirect authenticated users to home page
   useEffect(() => {
@@ -63,7 +63,7 @@ export default function SignIn() {
         });
         setIsLoading(false);
       }
-    } catch (error) {
+    } catch (_error) {
       toast({
         title: 'Error',
         description: 'Something went wrong. Please try again.',
@@ -131,7 +131,7 @@ export default function SignIn() {
               Sign In
             </Button>
             <p className="text-sm text-muted-foreground text-center">
-              Don't have an account?{' '}
+              Don&apos;t have an account?{' '}
               <Link href="/auth/signup" className="text-primary hover:underline">
                 Sign up
               </Link>

@@ -126,15 +126,6 @@ export class SettingsManager {
     }
   }
 
-  updateCloudConfig(cloudConfig: Partial<AppSettings['cloudStorage']>): void {
-    this.settings.cloudStorage = { ...this.settings.cloudStorage, ...cloudConfig };
-    if (this.userId) {
-      this.saveSettingsToDB();
-    } else {
-      this.saveSettingsToLocalStorage();
-    }
-  }
-
   getGeminiApiKey(): string {
     // First check environment variable, then settings
     if (typeof window !== 'undefined') {
@@ -145,12 +136,6 @@ export class SettingsManager {
 
   isGeminiConfigured(): boolean {
     return !!this.getGeminiApiKey();
-  }
-
-  isCloudStorageConfigured(): boolean {
-    const { cloudStorage } = this.settings;
-    return cloudStorage.enabled && !!cloudStorage.provider && 
-           Object.keys(cloudStorage.credentials).length > 0;
   }
 
   subscribe(listener: (settings: AppSettings) => void): () => void {
@@ -176,11 +161,7 @@ export class SettingsManager {
     const exportData = {
       ...this.settings,
       // Don't export sensitive data
-      geminiApiKey: '',
-      cloudStorage: {
-        ...this.settings.cloudStorage,
-        credentials: {}
-      }
+      geminiApiKey: ''
     };
     return JSON.stringify(exportData, null, 2);
   }

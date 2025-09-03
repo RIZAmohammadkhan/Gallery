@@ -1,11 +1,10 @@
 "use client";
 
-import { useState, useMemo, ChangeEvent, useEffect } from "react";
+import { useState, useMemo, ChangeEvent, useEffect, useCallback } from "react";
 import { SidebarProvider, Sidebar, SidebarInset, SidebarRail } from "@/components/ui/sidebar";
 import { Folder, StoredImage } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from 'next/navigation';
-import { getShareUrl, copyToClipboard } from "@/lib/sharing-client";
 
 
 import { generateImageMetadata } from "@/ai/flows/generate-image-metadata-flow";
@@ -22,7 +21,7 @@ import { ShareDialog } from "./share-dialog";
 import { SharedGalleriesManager } from "./shared-galleries-manager";
 import { BulkDeleteDialog } from "./bulk-delete-dialog";
 import { BulkExportDialog } from "./bulk-export-dialog";
-import { SettingsDialog } from "./settings-dialog-new";
+import { SettingsDialog } from "./settings-dialog";
 import { exportImagesAsZip } from "@/lib/bulk-operations";
 
 // Helper function to convert file URL to data URI for AI processing
@@ -64,7 +63,7 @@ export default function GalleryLayout() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   const { toast } = useToast();
-  const router = useRouter();
+  const _router = useRouter();
 
   // Load data from database on mount
   useEffect(() => {
@@ -468,7 +467,7 @@ export default function GalleryLayout() {
     }
   };
   
-  const performSearch = async (query: string) => {
+  const performSearch = useCallback(async (query: string) => {
     if (!query.trim()) {
         setSearchResults(null);
         return;
@@ -493,7 +492,7 @@ export default function GalleryLayout() {
     } finally {
         setIsSearching(false);
     }
-  };
+  }, [images, toast]);
 
   const handleManualCategorize = async (imageId: string) => {
     const image = images.find(img => img.id === imageId);
@@ -734,9 +733,9 @@ export default function GalleryLayout() {
   };
 
 
-  const handleBulkDelete = () => {
+  const handleBulkDelete = useCallback(() => {
     setIsBulkDeleteDialogOpen(true);
-  };
+  }, []);
 
   const handleConfirmBulkDelete = async () => {
     const selectedIds = Array.from(selectedImageIds);
@@ -819,7 +818,7 @@ export default function GalleryLayout() {
     setIsBulkDeleteDialogOpen(false);
   };
 
-  const handleBulkExport = async () => {
+  const handleBulkExport = useCallback(async () => {
     if (selectedImageIds.size === 0) return;
     
     const selectedImages = images.filter(img => selectedImageIds.has(img.id));
@@ -849,7 +848,7 @@ export default function GalleryLayout() {
       });
       setIsBulkExportDialogOpen(false);
     }
-  };
+  }, [selectedImageIds, images, toast]);
 
   const handleProcessAllImages = async () => {
     const imagesToProcess = images.filter(img => 
@@ -975,17 +974,17 @@ export default function GalleryLayout() {
 
   const selectedImage = useMemo(() => images.find(img => img.id === selectedImageId), [images, selectedImageId]);
 
-  const handleSelectAll = () => {
+  const handleSelectAll = useCallback(() => {
     if (!selectionMode) {
       setSelectionMode(true);
     }
     const allVisibleIds = new Set(displayedImages.map(img => img.id));
     setSelectedImageIds(allVisibleIds);
-  };
+  }, [selectionMode, displayedImages]);
 
-  const handleUnselectAll = () => {
+  const handleUnselectAll = useCallback(() => {
     setSelectedImageIds(new Set());
-  };
+  }, []);
 
   const allSelected = selectionMode && selectedImageIds.size > 0 && selectedImageIds.size === displayedImages.length;
 
@@ -1141,7 +1140,6 @@ export default function GalleryLayout() {
       <SettingsDialog
         isOpen={isSettingsOpen}
         onOpenChange={setIsSettingsOpen}
-        onProcessImages={handleProcessAllImages}
       />
     </SidebarProvider>
   );
