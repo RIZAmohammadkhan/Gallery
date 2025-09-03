@@ -95,11 +95,18 @@ export default {
             transform: 'rotate(360deg)',
           },
         },
+        'pulse-fast': {
+          '0%, 100%': { opacity: '1' },
+          '50%': { opacity: '0.3' },
+        },
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
         spin: 'spin 1s linear infinite',
+        'pulse-fast': 'pulse-fast 1.2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+        'pulse-fast-delay': 'pulse-fast 1.2s cubic-bezier(0.4, 0, 0.6, 1) 0.2s infinite',
+        'pulse-fast-delay-2': 'pulse-fast 1.2s cubic-bezier(0.4, 0, 0.6, 1) 0.4s infinite',
       },
     },
   },

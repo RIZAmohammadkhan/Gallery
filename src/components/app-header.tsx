@@ -1,7 +1,7 @@
 "use client";
 
 import type { ChangeEvent } from 'react';
-import { GalleryHorizontal, Search, Loader2 } from "lucide-react";
+import { GalleryHorizontal, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { SidebarTrigger } from './ui/sidebar';
 
@@ -30,7 +30,13 @@ export default function AppHeader({ onSearch, isSearching, searchQuery }: AppHea
               onChange={(e) => onSearch(e.target.value)}
               value={searchQuery}
             />
-            {isSearching && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />}
+             {isSearching && (
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center space-x-1">
+                <span className="h-1.5 w-1.5 animate-pulse-fast rounded-full bg-muted-foreground" />
+                <span className="h-1.5 w-1.5 animate-pulse-fast-delay rounded-full bg-muted-foreground" />
+                <span className="h-1.5 w-1.5 animate-pulse-fast-delay-2 rounded-full bg-muted-foreground" />
+              </div>
+            )}
           </div>
         </form>
       </div>
