@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, ChangeEvent } from "react";
+import { useState, useMemo, ChangeEvent, useEffect } from "react";
 import { SidebarProvider, Sidebar, SidebarInset } from "@/components/ui/sidebar";
 import { Folder, StoredImage } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
@@ -40,8 +40,25 @@ export default function GalleryLayout() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<string[] | null>(null);
   const [loadingStates, setLoadingStates] = useState<Record<string, string | boolean>>({});
+  const [isSearching, setIsSearching] = useState(false);
 
   const { toast } = useToast();
+  
+  // Debounce search
+  useEffect(() => {
+    const handler = setTimeout(() => {
+        if (searchQuery) {
+            performSearch(searchQuery);
+        } else {
+            setSearchResults(null);
+        }
+    }, 500); // 500ms delay
+
+    return () => {
+        clearTimeout(handler);
+    };
+  }, [searchQuery, images]);
+
 
   const handleCreateFolder = (name: string) => {
     const newFolder: Folder = { id: `folder-${Date.now()}`, name };
@@ -102,10 +119,33 @@ export default function GalleryLayout() {
         )
       );
 
-      toast({
-        title: "Upload Successful",
-        description: `${file.name} has been uploaded and analyzed.`,
-      });
+      // Automatic Categorization
+      setLoadingStates((prev) => ({ ...prev, [imageId]: "Categorizing..." }));
+      if (!defectRes.isDefective && folders.length > 0) {
+        const { category } = await categorizeImage({
+          photoDataUri: dataUri,
+          folders: folders.map(f => f.name),
+        });
+        const targetFolder = folders.find(f => f.name === category);
+        if (targetFolder) {
+          setImages(prev => prev.map(img => img.id === imageId ? { ...img, folderId: targetFolder.id } : img));
+          toast({
+            title: "Upload Successful",
+            description: `${file.name} uploaded and moved to "${category}".`,
+          });
+        } else {
+            toast({
+              title: "Upload Successful",
+              description: `${file.name} uploaded but couldn't be categorized.`,
+            });
+        }
+      } else {
+         toast({
+          title: "Upload Successful",
+          description: `${file.name} has been uploaded and analyzed.`,
+        });
+      }
+
     } catch (error) {
       console.error("Upload failed:", error);
       toast({
@@ -123,13 +163,12 @@ export default function GalleryLayout() {
     }
   };
   
-  const handleSearch = async (query: string) => {
-    setSearchQuery(query);
+  const performSearch = async (query: string) => {
     if (!query.trim()) {
         setSearchResults(null);
         return;
     }
-    setLoadingStates(prev => ({ ...prev, search: true }));
+    setIsSearching(true);
     try {
         const imageMetadata = images
             .map(img => ({ filename: img.id, description: `${img.name} ${img.metadata} ${img.tags?.join(' ')}` }));
@@ -142,11 +181,11 @@ export default function GalleryLayout() {
         toast({ title: "Search Error", description: "Could not perform search.", variant: "destructive" });
         setSearchResults([]);
     } finally {
-        setLoadingStates(prev => ({...prev, search: false}));
+        setIsSearching(false);
     }
   };
 
-  const handleCategorize = async (imageId: string) => {
+  const handleManualCategorize = async (imageId: string) => {
     const image = images.find(img => img.id === imageId);
     if (!image) return;
 
@@ -264,8 +303,8 @@ export default function GalleryLayout() {
         <div className="flex flex-col h-screen">
           <AppHeader
             onFileUpload={handleFileUpload}
-            onSearch={handleSearch}
-            isSearching={loadingStates.search === true}
+            onSearch={setSearchQuery}
+            isSearching={isSearching}
           />
           <main className="flex-1 overflow-y-auto p-4 md:p-6">
             <ImageGrid
@@ -282,7 +321,7 @@ export default function GalleryLayout() {
           image={selectedImage}
           folders={folders}
           onOpenChange={() => setSelectedImageId(null)}
-          onCategorize={handleCategorize}
+          onCategorize={handleManualCategorize}
           onUpdateImage={handleUpdateImage}
           onDeleteImage={handleDeleteImage}
           onEditImage={handleEditImage}
