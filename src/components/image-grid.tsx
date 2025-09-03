@@ -13,8 +13,8 @@ interface ImageGridProps {
 export default function ImageGrid({ images, loadingStates, onImageClick }: ImageGridProps) {
   if (Object.values(loadingStates).some(s => typeof s === 'string' && s.includes('Uploading')) && images.length === 0) {
     return (
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-        {[...Array(1)].map((_, i) => <ImageCardSkeleton key={i} />)}
+      <div className="columns-2 md:columns-3 lg:columns-4 xl:columns-5 gap-4">
+        {[...Array(5)].map((_, i) => <ImageCardSkeleton key={i} />)}
       </div>
     );
   }
@@ -30,7 +30,7 @@ export default function ImageGrid({ images, loadingStates, onImageClick }: Image
   }
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+    <div className="columns-2 md:columns-3 lg:columns-4 xl:columns-5 gap-4">
       {images.map((image) => (
         <ImageCard
           key={image.id}
