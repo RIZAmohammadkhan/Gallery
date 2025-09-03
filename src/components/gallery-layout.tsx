@@ -5,6 +5,7 @@ import { SidebarProvider, Sidebar, SidebarInset, SidebarRail } from "@/component
 import { Folder, StoredImage } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from 'next/navigation';
+import { createSharedGallery, getShareUrl, copyToClipboard } from "@/lib/sharing";
 
 
 import { generateImageMetadata } from "@/ai/flows/generate-image-metadata-flow";
@@ -18,6 +19,12 @@ import AppSidebar from "./app-sidebar";
 import ImageGrid from "./image-grid";
 import ImageDetail from "./image-detail";
 import { ShareDialog } from "./share-dialog";
+import { SharedGalleriesManager } from "./shared-galleries-manager";
+import { BulkDeleteDialog } from "./bulk-delete-dialog";
+import { BulkExportDialog } from "./bulk-export-dialog";
+import { SettingsDialog } from "./settings-dialog";
+import { CloudSyncDialog } from "./cloud-sync-dialog";
+import { exportImagesAsZip } from "@/lib/bulk-operations";
 
 const initialFolders: Folder[] = [
   { id: "folder-1", name: "Landscapes" },
@@ -47,6 +54,13 @@ export default function GalleryLayout() {
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedImageIds, setSelectedImageIds] = useState<Set<string>>(new Set());
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
+  const [isSharedGalleriesOpen, setIsSharedGalleriesOpen] = useState(false);
+  const [isBulkDeleteDialogOpen, setIsBulkDeleteDialogOpen] = useState(false);
+  const [isBulkExportDialogOpen, setIsBulkExportDialogOpen] = useState(false);
+  const [isCloudSyncDialogOpen, setIsCloudSyncDialogOpen] = useState(false);
+  const [exportProgress, setExportProgress] = useState(0);
+  const [isExportComplete, setIsExportComplete] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   const { toast } = useToast();
   const router = useRouter();
@@ -249,8 +263,30 @@ export default function GalleryLayout() {
   };
   
   const handleDeleteImage = (imageId: string) => {
+    const image = images.find(img => img.id === imageId);
+    if (!image) return;
+    
+    if (image.isDefective) {
+      // Permanently delete if image is in bin
       setImages(prev => prev.filter(img => img.id !== imageId));
-      setSelectedImageId(null);
+      toast({ 
+        title: "Image Permanently Deleted", 
+        description: "The image has been permanently deleted." 
+      });
+    } else {
+      // Move to bin if image is not in bin
+      setImages(prev => prev.map(img => 
+        img.id === imageId 
+          ? { ...img, isDefective: true, defectType: 'Manual', folderId: null }
+          : img
+      ));
+      toast({ 
+        title: "Image Moved to Bin", 
+        description: "The image has been moved to Bin." 
+      });
+    }
+    
+    setSelectedImageId(null);
   };
 
   const handleEditImage = async (imageId: string, prompt: string) => {
@@ -259,8 +295,25 @@ export default function GalleryLayout() {
     setLoadingStates(prev => ({...prev, [imageId]: 'Editing...'}));
     try {
         const { editedPhotoDataUri } = await editImage({ photoDataUri: image.dataUri, editDescription: prompt });
-        handleUpdateImage(imageId, { dataUri: editedPhotoDataUri });
-        toast({ title: "Image Edited", description: "Your image has been updated with AI edits." });
+        
+        // Create a new image instead of replacing the existing one
+        const newImageId = `img-${Date.now()}-edited`;
+        const newImage: StoredImage = {
+          id: newImageId,
+          name: `${image.name} (AI Edited)`,
+          dataUri: editedPhotoDataUri,
+          width: image.width,
+          height: image.height,
+          folderId: image.folderId,
+          metadata: `${image.metadata || ''} (AI edited: ${prompt})`,
+          tags: [...(image.tags || []), 'ai-edited'],
+          isDefective: false
+        };
+        
+        // Add the new edited image to the gallery
+        setImages(prev => [newImage, ...prev]);
+        
+        toast({ title: "Image Edited", description: "A new AI-edited image has been added to your gallery." });
     } catch (error) {
         console.error("Edit failed:", error);
         toast({ title: "Edit Failed", description: "Could not apply AI edits.", variant: "destructive" });
@@ -315,28 +368,110 @@ export default function GalleryLayout() {
     }
   };
 
-  const handleShare = (title: string) => {
-    const shareId = `share-${Date.now()}`;
+  const handleShare = (title: string, expirationDays?: number): string => {
     const selectedImages = images.filter(img => selectedImageIds.has(img.id)).map(img => ({
       id: img.id,
       dataUri: img.dataUri,
       name: img.name
     }));
     
-    // In a real app, you'd save this to a database.
-    // Here, we'll pass the data through URL params for this prototype.
-    const imagesParam = encodeURIComponent(JSON.stringify(selectedImages));
-    const url = `/share/${shareId}?title=${encodeURIComponent(title)}&images=${imagesParam}`;
+    // Create a proper shared gallery with persistence
+    const shareId = createSharedGallery(title, selectedImages, expirationDays);
+    const shareUrl = getShareUrl(shareId);
+    
+    // Copy to clipboard automatically
+    copyToClipboard(shareUrl).then((success: boolean) => {
+      if (success) {
+        toast({ 
+          title: "Link Generated and Copied", 
+          description: "Shareable link has been copied to your clipboard." 
+        });
+      } else {
+        toast({ 
+          title: "Link Generated", 
+          description: "Shareable link created successfully." 
+        });
+      }
+    });
     
     // Open in a new tab
-    window.open(url, '_blank');
+    window.open(shareUrl, '_blank');
     
-    setIsShareDialogOpen(false);
     setSelectionMode(false);
     setSelectedImageIds(new Set());
-    toast({ title: "Link Generated", description: "Shareable link opened in a new tab." });
+    
+    return shareUrl;
   };
 
+  const handleBulkDelete = () => {
+    setIsBulkDeleteDialogOpen(true);
+  };
+
+  const handleConfirmBulkDelete = () => {
+    const selectedIds = Array.from(selectedImageIds);
+    
+    if (activeView === "bin") {
+      // Permanently delete images when in bin view
+      setImages(prev => prev.filter(img => !selectedIds.includes(img.id)));
+      
+      toast({ 
+        title: "Images Permanently Deleted", 
+        description: `Successfully deleted ${selectedIds.length} ${selectedIds.length === 1 ? 'image' : 'images'} permanently.` 
+      });
+    } else {
+      // Mark selected images as defective (move to bin) when not in bin view
+      setImages(prev => prev.map(img => 
+        selectedIds.includes(img.id) 
+          ? { ...img, isDefective: true, defectType: 'Manual', folderId: null }
+          : img
+      ));
+      
+      toast({ 
+        title: "Images Moved to Bin", 
+        description: `Successfully moved ${selectedIds.length} ${selectedIds.length === 1 ? 'image' : 'images'} to Bin.` 
+      });
+    }
+    
+    setSelectionMode(false);
+    setSelectedImageIds(new Set());
+    setIsBulkDeleteDialogOpen(false);
+  };
+
+  const handleBulkExport = async () => {
+    if (selectedImageIds.size === 0) return;
+    
+    const selectedImages = images.filter(img => selectedImageIds.has(img.id));
+    setIsBulkExportDialogOpen(true);
+    setExportProgress(0);
+    setIsExportComplete(false);
+    
+    try {
+      await exportImagesAsZip(selectedImages, (progress) => {
+        setExportProgress(progress);
+      });
+      
+      setIsExportComplete(true);
+      toast({ 
+        title: "Export Complete", 
+        description: `Successfully exported ${selectedImages.length} ${selectedImages.length === 1 ? 'image' : 'images'}.` 
+      });
+      
+      setSelectionMode(false);
+      setSelectedImageIds(new Set());
+    } catch (error) {
+      console.error('Export failed:', error);
+      toast({ 
+        title: "Export Failed", 
+        description: "There was an error exporting the images. Please try again.", 
+        variant: "destructive" 
+      });
+      setIsBulkExportDialogOpen(false);
+    }
+  };
+
+  const handleCloudSync = () => {
+    setIsCloudSyncDialogOpen(true);
+  };
 
   const displayedImages = useMemo(() => {
     const sourceImages = searchResults
@@ -364,6 +499,71 @@ export default function GalleryLayout() {
 
   const selectedImage = useMemo(() => images.find(img => img.id === selectedImageId), [images, selectedImageId]);
 
+  const handleSelectAll = () => {
+    if (!selectionMode) {
+      setSelectionMode(true);
+    }
+    const allVisibleIds = new Set(displayedImages.map(img => img.id));
+    setSelectedImageIds(allVisibleIds);
+  };
+
+  const handleUnselectAll = () => {
+    setSelectedImageIds(new Set());
+  };
+
+  const allSelected = selectionMode && selectedImageIds.size > 0 && selectedImageIds.size === displayedImages.length;
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Only handle shortcuts when not typing in inputs
+      if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+
+      // Ctrl/Cmd + A - Toggle select all/none
+      if ((event.ctrlKey || event.metaKey) && event.key === 'a') {
+        event.preventDefault();
+        if (allSelected) {
+          handleUnselectAll();
+        } else {
+          handleSelectAll();
+        }
+        return;
+      }
+
+      // Only handle these shortcuts in selection mode
+      if (!selectionMode || selectedImageIds.size === 0) return;
+
+      // Delete key - Move to bin
+      if (event.key === 'Delete' || event.key === 'Backspace') {
+        event.preventDefault();
+        handleBulkDelete();
+        return;
+      }
+
+      // Ctrl/Cmd + E - Bulk export
+      if ((event.ctrlKey || event.metaKey) && event.key === 'e') {
+        event.preventDefault();
+        handleBulkExport();
+        return;
+      }
+
+      // Escape - Exit selection mode
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setSelectionMode(false);
+        setSelectedImageIds(new Set());
+        return;
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [selectionMode, selectedImageIds, displayedImages, handleBulkDelete, handleBulkExport, handleSelectAll, handleUnselectAll, allSelected]);
+
   return (
     <SidebarProvider>
       <Sidebar collapsible="icon">
@@ -387,6 +587,16 @@ export default function GalleryLayout() {
             onToggleSelectionMode={handleToggleSelectionMode}
             selectedImageCount={selectedImageIds.size}
             onShare={() => setIsShareDialogOpen(true)}
+            onOpenSharedGalleries={() => setIsSharedGalleriesOpen(true)}
+            onBulkDelete={handleBulkDelete}
+            onBulkExport={handleBulkExport}
+            onCloudSync={handleCloudSync}
+            onSelectAll={handleSelectAll}
+            onUnselectAll={handleUnselectAll}
+            totalVisibleImages={displayedImages.length}
+            allSelected={allSelected}
+            onOpenSettings={() => setIsSettingsOpen(true)}
+            activeView={activeView}
           />
           <main className="flex-1 overflow-y-auto p-4 md:p-6">
             <ImageGrid
@@ -417,6 +627,33 @@ export default function GalleryLayout() {
         onOpenChange={setIsShareDialogOpen}
         onShare={handleShare}
         selectedImageCount={selectedImageIds.size}
+      />
+      <SharedGalleriesManager
+        isOpen={isSharedGalleriesOpen}
+        onOpenChange={setIsSharedGalleriesOpen}
+      />
+      <BulkDeleteDialog
+        isOpen={isBulkDeleteDialogOpen}
+        onOpenChange={setIsBulkDeleteDialogOpen}
+        onConfirm={handleConfirmBulkDelete}
+        imageCount={selectedImageIds.size}
+        isPermanent={activeView === "bin"}
+      />
+      <BulkExportDialog
+        isOpen={isBulkExportDialogOpen}
+        onOpenChange={setIsBulkExportDialogOpen}
+        progress={exportProgress}
+        isComplete={isExportComplete}
+        imageCount={selectedImageIds.size}
+      />
+      <SettingsDialog
+        isOpen={isSettingsOpen}
+        onOpenChange={setIsSettingsOpen}
+      />
+      <CloudSyncDialog
+        isOpen={isCloudSyncDialogOpen}
+        onOpenChange={setIsCloudSyncDialogOpen}
+        images={images.filter(img => selectedImageIds.has(img.id))}
       />
     </SidebarProvider>
   );

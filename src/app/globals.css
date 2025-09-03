@@ -49,3 +49,21 @@
     @apply bg-background text-foreground font-body;
   }
 }
+
+@layer utilities {
+  /* Custom animations for professional feel */
+  .animate-pulse-slow {
+    animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+  
+  .transition-layout {
+    transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  /* Smooth backdrop blur support detection */
+  @supports (backdrop-filter: blur(1px)) {
+    .supports-backdrop-blur {
+      backdrop-filter: blur(8px);
+    }
+  }
+}
