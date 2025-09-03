@@ -4,28 +4,39 @@ import Image from "next/image";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { StoredImage } from "@/lib/types";
-import { Loader2 } from "lucide-react";
+import { Loader2, CheckCircle2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface ImageCardProps {
   image: StoredImage;
   loadingState: string | boolean | undefined;
   onClick: () => void;
+  selectionMode: boolean;
+  isSelected: boolean;
 }
 
-export default function ImageCard({ image, loadingState, onClick }: ImageCardProps) {
+export default function ImageCard({ image, loadingState, onClick, selectionMode, isSelected }: ImageCardProps) {
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>) => {
+    // Disable drag-and-drop while in selection mode
+    if (selectionMode) {
+      e.preventDefault();
+      return;
+    }
     e.dataTransfer.setData("imageId", image.id);
   };
   
   return (
     <div 
-      className="break-inside-avoid mb-4" 
+      className="break-inside-avoid mb-4 relative" 
       onClick={onClick}
-      draggable="true"
+      draggable={!selectionMode}
       onDragStart={handleDragStart}
     >
       <Card
-        className="overflow-hidden cursor-pointer group transition-all duration-300 hover:shadow-xl hover:shadow-primary/20 border-transparent hover:border-primary/50"
+        className={cn(
+          "overflow-hidden cursor-pointer group transition-all duration-300 hover:shadow-xl hover:shadow-primary/20 border-2",
+          isSelected ? "border-primary" : "border-transparent"
+        )}
       >
         <CardContent className="p-0 relative">
           <Image
@@ -35,14 +46,32 @@ export default function ImageCard({ image, loadingState, onClick }: ImageCardPro
             height={image.height || 500}
             className="w-full h-auto object-cover transition-transform duration-300 group-hover:scale-105"
           />
-          {loadingState && (
-            <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center text-white p-2 text-center">
-              <Loader2 className="animate-spin h-8 w-8 mb-2" />
-              <span className="text-sm font-medium">{typeof loadingState === 'string' ? loadingState : 'Processing...'}</span>
+          {(loadingState || selectionMode) && (
+            <div className={cn(
+              "absolute inset-0 bg-black/70 flex flex-col items-center justify-center text-white p-2 text-center",
+              !loadingState && selectionMode && !isSelected && "bg-black/40",
+              !loadingState && selectionMode && isSelected && "bg-primary/40",
+            )}>
+              {loadingState ? (
+                <>
+                  <Loader2 className="animate-spin h-8 w-8 mb-2" />
+                  <span className="text-sm font-medium">{typeof loadingState === 'string' ? loadingState : 'Processing...'}</span>
+                </>
+              ) : (
+                selectionMode && isSelected && <CheckCircle2 className="h-10 w-10 text-white" />
+              )}
             </div>
           )}
         </CardContent>
       </Card>
+       {selectionMode && !loadingState && (
+        <div className={cn(
+            "absolute top-2 left-2 h-6 w-6 rounded-full border-2 border-white bg-background/50 flex items-center justify-center transition-all",
+            isSelected && "bg-primary border-primary"
+        )}>
+           {isSelected && <CheckCircle2 className="h-5 w-5 text-white" />}
+        </div>
+      )}
     </div>
   );
 }

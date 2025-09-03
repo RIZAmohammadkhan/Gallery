@@ -9,6 +9,7 @@ export interface StoredImage {
   defectType?: string;
   width?: number;
   height?: number;
+  data_ai_hint?: string;
 }
 
 export interface Folder {

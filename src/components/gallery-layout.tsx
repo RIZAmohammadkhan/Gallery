@@ -4,10 +4,12 @@ import { useState, useMemo, ChangeEvent, useEffect } from "react";
 import { SidebarProvider, Sidebar, SidebarInset, SidebarRail } from "@/components/ui/sidebar";
 import { Folder, StoredImage } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
+import { useRouter } from 'next/navigation';
+
 
 import { generateImageMetadata } from "@/ai/flows/generate-image-metadata-flow";
 import { detectDefectiveImages } from "@/ai/flows/detect-defective-images-flow";
-import { searchImages } from "@/ai/flows/search-images-flow";
+import { advancedSearchImages } from "@/ai/flows/advanced-search-images-flow";
 import { categorizeImage } from "@/ai/flows/categorize-images-flow";
 import { editImage } from "@/ai/flows/edit-image-flow";
 
@@ -15,6 +17,7 @@ import AppHeader from "./app-header";
 import AppSidebar from "./app-sidebar";
 import ImageGrid from "./image-grid";
 import ImageDetail from "./image-detail";
+import { ShareDialog } from "./share-dialog";
 
 const initialFolders: Folder[] = [
   { id: "folder-1", name: "Landscapes" },
@@ -27,7 +30,7 @@ const initialImages: StoredImage[] = [
     { id: '2', name: 'Urban Night', dataUri: 'https://picsum.photos/id/20/800/1200', metadata: 'City street at night with light trails from traffic.', folderId: 'folder-2', data_ai_hint: 'city night', width: 800, height: 1200, tags: ['city', 'night', 'traffic'] },
     { id: '3', name: 'Smiling Person', dataUri: 'https://picsum.photos/id/30/800/600', metadata: 'A close-up portrait of a person smiling warmly.', folderId: 'folder-3', data_ai_hint: 'person smiling', width: 800, height: 600, tags: ['portrait', 'person', 'smiling'] },
     { id: '4', name: 'Forest Path', dataUri: 'https://picsum.photos/id/40/800/1000', metadata: 'A sunlit path winding through a dense green forest.', folderId: 'folder-1', data_ai_hint: 'forest path', width: 800, height: 1000, tags: ['forest', 'path', 'nature'] },
-    { id: '5', name: 'Blurry Photo', dataUri: 'https://picsum.photos/id/50/800/600', metadata: 'Abstract lights, out of focus.', isDefective: true, defectType: 'Blurry', data_ai_hint: 'blurry lights', width: 800, height: 600 },
+    { id: '5', name: 'Blurry Photo', dataUri: 'https://picsum.photos/id/50/800/600', metadata: 'Abstract lights, out of focus.', isDefective: true, defectType: 'Blurry', data_ai_hint: 'blurry lights', width: 800, height: 600, tags: ['abstract', 'lights', 'blurry'] },
     { id: '6', name: 'Modern Architecture', dataUri: 'https://picsum.photos/id/60/800/700', metadata: 'The sharp geometric lines of a modern building against the sky.', folderId: 'folder-2', data_ai_hint: 'modern architecture', width: 800, height: 700, tags: ['architecture', 'modern', 'building'] },
     { id: '7', name: 'Uncategorized Photo', dataUri: 'https://picsum.photos/id/70/800/600', metadata: 'A beautiful shot of a beach.', folderId: null, data_ai_hint: 'beach', width: 800, height: 600, tags: ['beach', 'ocean', 'sand'] },
 ];
@@ -41,8 +44,12 @@ export default function GalleryLayout() {
   const [searchResults, setSearchResults] = useState<string[] | null>(null);
   const [loadingStates, setLoadingStates] = useState<Record<string, string | boolean>>({});
   const [isSearching, setIsSearching] = useState(false);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedImageIds, setSelectedImageIds] = useState<Set<string>>(new Set());
+  const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
 
   const { toast } = useToast();
+  const router = useRouter();
   
   // Debounce search
   useEffect(() => {
@@ -93,7 +100,7 @@ export default function GalleryLayout() {
         img.src = e.target?.result as string;
       };
       reader.onerror = reject;
-      reader.readAsDataURL(file);
+      reader.readDataURL(file);
     });
   };
 
@@ -181,10 +188,15 @@ export default function GalleryLayout() {
     }
     
     try {
-        const imageMetadata = images
-            .map(img => ({ filename: img.id, description: `${img.name} ${img.metadata} ${img.tags?.join(' ')}` }));
+        const imageMetadata = images.map(img => ({ 
+            filename: img.id, 
+            description: `${img.name} ${img.metadata}`,
+            tags: img.tags,
+            isDefective: img.isDefective,
+            defectType: img.defectType,
+        }));
 
-        const res = await searchImages({ query: query.trim(), imageMetadata });
+        const res = await advancedSearchImages({ query: query.trim(), imageMetadata });
         setSearchResults(res.results);
     } catch (error)
         {
@@ -273,6 +285,54 @@ export default function GalleryLayout() {
     }
   };
 
+  const handleToggleSelectionMode = () => {
+    setSelectionMode(prev => !prev);
+    setSelectedImageIds(new Set());
+  };
+
+  const handleImageSelection = (imageId: string) => {
+    setSelectedImageIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(imageId)) {
+        newSet.delete(imageId);
+      } else {
+        newSet.add(imageId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleImageClick = (imageId: string) => {
+    if (selectionMode) {
+      handleImageSelection(imageId);
+    } else {
+      setSelectedImageId(imageId);
+    }
+  };
+
+  const handleShare = (title: string) => {
+    const shareId = `share-${Date.now()}`;
+    const selectedImages = images.filter(img => selectedImageIds.has(img.id)).map(img => ({
+      id: img.id,
+      dataUri: img.dataUri,
+      name: img.name
+    }));
+    
+    // In a real app, you'd save this to a database.
+    // Here, we'll pass the data through URL params for this prototype.
+    const imagesParam = encodeURIComponent(JSON.stringify(selectedImages));
+    const url = `/share/${shareId}?title=${encodeURIComponent(title)}&images=${imagesParam}`;
+    
+    // Open in a new tab
+    window.open(url, '_blank');
+    
+    setIsShareDialogOpen(false);
+    setSelectionMode(false);
+    setSelectedImageIds(new Set());
+    toast({ title: "Link Generated", description: "Shareable link opened in a new tab." });
+  };
+
+
   const displayedImages = useMemo(() => {
     const sourceImages = searchResults
       ? images.filter(img => searchResults.includes(img.id))
@@ -318,12 +378,18 @@ export default function GalleryLayout() {
             onSearch={setSearchQuery}
             isSearching={isSearching}
             searchQuery={searchQuery}
+            selectionMode={selectionMode}
+            onToggleSelectionMode={handleToggleSelectionMode}
+            selectedImageCount={selectedImageIds.size}
+            onShare={() => setIsShareDialogOpen(true)}
           />
           <main className="flex-1 overflow-y-auto p-4 md:p-6">
             <ImageGrid
               images={displayedImages}
               loadingStates={loadingStates}
-              onImageClick={(id) => setSelectedImageId(id)}
+              onImageClick={handleImageClick}
+              selectionMode={selectionMode}
+              selectedImageIds={selectedImageIds}
             />
           </main>
         </div>
@@ -341,6 +407,12 @@ export default function GalleryLayout() {
           loadingState={loadingStates[selectedImage.id]}
         />
       )}
+      <ShareDialog
+        isOpen={isShareDialogOpen}
+        onOpenChange={setIsShareDialogOpen}
+        onShare={handleShare}
+        selectedImageCount={selectedImageIds.size}
+      />
     </SidebarProvider>
   );
 }

@@ -8,9 +8,11 @@ interface ImageGridProps {
   images: StoredImage[];
   loadingStates: Record<string, string | boolean>;
   onImageClick: (id: string) => void;
+  selectionMode: boolean;
+  selectedImageIds: Set<string>;
 }
 
-export default function ImageGrid({ images, loadingStates, onImageClick }: ImageGridProps) {
+export default function ImageGrid({ images, loadingStates, onImageClick, selectionMode, selectedImageIds }: ImageGridProps) {
   if (Object.values(loadingStates).some(s => typeof s === 'string' && s.includes('Uploading')) && images.length === 0) {
     return (
       <div className="columns-2 md:columns-3 lg:columns-4 xl:columns-5 gap-4">
@@ -37,6 +39,8 @@ export default function ImageGrid({ images, loadingStates, onImageClick }: Image
           image={image}
           onClick={() => onImageClick(image.id)}
           loadingState={loadingStates[image.id]}
+          selectionMode={selectionMode}
+          isSelected={selectedImageIds.has(image.id)}
         />
       ))}
     </div>
