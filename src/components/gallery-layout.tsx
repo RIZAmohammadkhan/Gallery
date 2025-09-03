@@ -67,6 +67,15 @@ export default function GalleryLayout() {
     setFolders((prev) => [...prev, newFolder]);
     toast({ title: "Folder Created", description: `Successfully created "${name}".` });
   };
+  
+  const handleChangeActiveView = (view: string) => {
+    if (searchQuery) {
+        setSearchQuery("");
+        setSearchResults(null);
+    }
+    setActiveView(view);
+  };
+
 
   const readFileAsDataURI = (file: File): Promise<{dataUri: string, width: number, height: number}> => {
     return new Promise((resolve, reject) => {
@@ -296,7 +305,7 @@ export default function GalleryLayout() {
         <AppSidebar
           folders={folders}
           activeView={activeView}
-          setActiveView={setActiveView}
+          setActiveView={handleChangeActiveView}
           onCreateFolder={handleCreateFolder}
           onImageDrop={handleImageDrop}
         />
@@ -307,6 +316,7 @@ export default function GalleryLayout() {
             onFileUpload={handleFileUpload}
             onSearch={setSearchQuery}
             isSearching={isSearching}
+            searchQuery={searchQuery}
           />
           <main className="flex-1 overflow-y-auto p-4 md:p-6">
             <ImageGrid

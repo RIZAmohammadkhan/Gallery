@@ -10,9 +10,10 @@ interface AppHeaderProps {
   onFileUpload: (event: ChangeEvent<HTMLInputElement>) => void;
   onSearch: (query: string) => void;
   isSearching: boolean;
+  searchQuery: string;
 }
 
-export default function AppHeader({ onFileUpload, onSearch, isSearching }: AppHeaderProps) {
+export default function AppHeader({ onFileUpload, onSearch, isSearching, searchQuery }: AppHeaderProps) {
   return (
     <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center gap-4 border-b bg-background/80 backdrop-blur-sm px-4 md:px-6">
        <SidebarTrigger className="md:hidden" />
@@ -22,13 +23,14 @@ export default function AppHeader({ onFileUpload, onSearch, isSearching }: AppHe
       </div>
       <div className="flex w-full items-center gap-4 md:ml-auto md:gap-2 lg:gap-4">
         <form className="ml-auto flex-1 sm:flex-initial" onSubmit={(e) => e.preventDefault()}>
-          <div className="relative">
+          <div className="relative flex items-center">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               type="search"
               placeholder="Search images..."
               className="pl-10 sm:w-[300px] md:w-[200px] lg:w-[300px] bg-background rounded-full"
               onChange={(e) => onSearch(e.target.value)}
+              value={searchQuery}
             />
             {isSearching && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />}
           </div>
