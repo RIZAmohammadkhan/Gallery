@@ -154,7 +154,7 @@ export default function ImageDetail({
                     
                     <Tooltip>
                       <TooltipTrigger asChild>
-                          <Button variant="outline" size="icon" onClick={() => onUpdateImage(image.id, { isDefective: true, defectType: 'Manual' })} disabled={isLoading}>
+                          <Button variant="destructive-outline" size="icon" onClick={() => onUpdateImage(image.id, { isDefective: true, defectType: 'Manual' })} disabled={isLoading}>
                               <Trash2 className="h-4 w-4" />
                           </Button>
                       </TooltipTrigger>

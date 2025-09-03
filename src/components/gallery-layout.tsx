@@ -132,7 +132,6 @@ export default function GalleryLayout() {
     setLoadingStates(prev => ({ ...prev, search: true }));
     try {
         const imageMetadata = images
-            .filter(img => img.metadata)
             .map(img => ({ filename: img.id, description: `${img.name} ${img.metadata} ${img.tags?.join(' ')}` }));
 
         const res = await searchImages({ query: query.trim(), imageMetadata });
@@ -207,11 +206,16 @@ export default function GalleryLayout() {
     }
   };
 
-  const handleImageDrop = (folderId: string, imageId: string) => {
-    const folder = folders.find(f => f.id === folderId);
-    if (folder) {
+  const handleImageDrop = (folderId: string | null, imageId: string) => {
+    if (folderId === 'bin') {
+      handleUpdateImage(imageId, { isDefective: true, defectType: 'Manual' });
+      toast({ title: "Image Moved", description: "Image moved to Bin." });
+    } else {
+      const folder = folders.find(f => f.id === folderId);
+      if (folder) {
         handleUpdateImage(imageId, { folderId });
-        toast({ title: "Image Moved", description: `Image moved to "${folder.name}".`});
+        toast({ title: "Image Moved", description: `Image moved to "${folder.name}".` });
+      }
     }
   };
 

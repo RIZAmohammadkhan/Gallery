@@ -31,7 +31,7 @@ interface AppSidebarProps {
   activeView: string;
   setActiveView: (view: string) => void;
   onCreateFolder: (name: string) => void;
-  onImageDrop: (folderId: string, imageId: string) => void;
+  onImageDrop: (folderId: string | null, imageId: string) => void;
 }
 
 export default function AppSidebar({ folders, activeView, setActiveView, onCreateFolder, onImageDrop }: AppSidebarProps) {
@@ -47,7 +47,7 @@ export default function AppSidebar({ folders, activeView, setActiveView, onCreat
     }
   };
   
-  const handleDrop = (e: React.DragEvent<HTMLButtonElement>, folderId: string) => {
+  const handleDrop = (e: React.DragEvent<HTMLButtonElement>, folderId: string | null) => {
     e.preventDefault();
     const imageId = e.dataTransfer.getData("imageId");
     if (imageId) {
@@ -124,7 +124,10 @@ export default function AppSidebar({ folders, activeView, setActiveView, onCreat
               onClick={() => setActiveView("bin")}
               isActive={activeView === "bin"}
               tooltip="Bin"
-              className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+              className={cn("text-muted-foreground hover:text-destructive hover:bg-destructive/10", isDragOver === "bin" && "bg-destructive/20")}
+              onDrop={(e) => handleDrop(e, 'bin')}
+              onDragOver={(e) => handleDragOver(e, 'bin')}
+              onDragLeave={handleDragLeave}
             >
               <Trash2 />
               <span>Bin</span>
