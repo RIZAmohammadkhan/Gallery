@@ -13,10 +13,19 @@ interface ImageCardProps {
 }
 
 export default function ImageCard({ image, loadingState, onClick }: ImageCardProps) {
+  const handleDragStart = (e: React.DragEvent<HTMLDivElement>) => {
+    e.dataTransfer.setData("imageId", image.id);
+  };
+  
   return (
-    <div className="break-inside-avoid mb-4" onClick={onClick}>
+    <div 
+      className="break-inside-avoid mb-4" 
+      onClick={onClick}
+      draggable="true"
+      onDragStart={handleDragStart}
+    >
       <Card
-        className="overflow-hidden cursor-pointer group transition-all hover:shadow-lg hover:brightness-90"
+        className="overflow-hidden cursor-pointer group transition-all hover:shadow-lg hover:brightness-90 border-2 border-transparent hover:border-primary"
       >
         <CardContent className="p-0 relative">
           <Image

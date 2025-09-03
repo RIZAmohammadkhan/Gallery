@@ -24,17 +24,20 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Folder } from "@/lib/types";
 import { Separator } from "./ui/separator";
+import { cn } from "@/lib/utils";
 
 interface AppSidebarProps {
   folders: Folder[];
   activeView: string;
   setActiveView: (view: string) => void;
   onCreateFolder: (name: string) => void;
+  onImageDrop: (folderId: string, imageId: string) => void;
 }
 
-export default function AppSidebar({ folders, activeView, setActiveView, onCreateFolder }: AppSidebarProps) {
+export default function AppSidebar({ folders, activeView, setActiveView, onCreateFolder, onImageDrop }: AppSidebarProps) {
   const [newFolderName, setNewFolderName] = useState("");
   const [isNewFolderDialogOpen, setIsNewFolderDialogOpen] = useState(false);
+  const [isDragOver, setIsDragOver] = useState<string | null>(null);
 
   const handleCreate = () => {
     if (newFolderName.trim()) {
@@ -43,6 +46,26 @@ export default function AppSidebar({ folders, activeView, setActiveView, onCreat
       setIsNewFolderDialogOpen(false);
     }
   };
+  
+  const handleDrop = (e: React.DragEvent<HTMLButtonElement>, folderId: string) => {
+    e.preventDefault();
+    const imageId = e.dataTransfer.getData("imageId");
+    if (imageId) {
+      onImageDrop(folderId, imageId);
+    }
+    setIsDragOver(null);
+  };
+  
+  const handleDragOver = (e: React.DragEvent<HTMLButtonElement>, folderId: string) => {
+    e.preventDefault();
+    setIsDragOver(folderId);
+  };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    setIsDragOver(null);
+  };
+
 
   return (
     <>
@@ -68,6 +91,13 @@ export default function AppSidebar({ folders, activeView, setActiveView, onCreat
                 onClick={() => setActiveView(folder.id)}
                 isActive={activeView === folder.id}
                 tooltip={folder.name}
+                onDrop={(e) => handleDrop(e, folder.id)}
+                onDragOver={(e) => handleDragOver(e, folder.id)}
+                onDragLeave={handleDragLeave}
+                className={cn(
+                  "transition-colors",
+                  isDragOver === folder.id && "bg-accent/50"
+                )}
               >
                 <FolderIcon />
                 <span>{folder.name}</span>

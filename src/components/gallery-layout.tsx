@@ -23,12 +23,12 @@ const initialFolders: Folder[] = [
 ];
 
 const initialImages: StoredImage[] = [
-    { id: '1', name: 'Mountain Lake', dataUri: 'https://picsum.photos/id/10/800/600', metadata: 'A serene mountain lake reflects a clear blue sky.', folderId: 'folder-1', data_ai_hint: 'mountain lake', width: 800, height: 600 },
-    { id: '2', name: 'Urban Night', dataUri: 'https://picsum.photos/id/20/800/1200', metadata: 'City street at night with light trails from traffic.', folderId: 'folder-2', data_ai_hint: 'city night', width: 800, height: 1200 },
-    { id: '3', name: 'Smiling Person', dataUri: 'https://picsum.photos/id/30/800/600', metadata: 'A close-up portrait of a person smiling warmly.', folderId: 'folder-3', data_ai_hint: 'person smiling', width: 800, height: 600 },
-    { id: '4', name: 'Forest Path', dataUri: 'https://picsum.photos/id/40/800/1000', metadata: 'A sunlit path winding through a dense green forest.', folderId: 'folder-1', data_ai_hint: 'forest path', width: 800, height: 1000 },
+    { id: '1', name: 'Mountain Lake', dataUri: 'https://picsum.photos/id/10/800/600', metadata: 'A serene mountain lake reflects a clear blue sky.', folderId: 'folder-1', data_ai_hint: 'mountain lake', width: 800, height: 600, tags: ['mountain', 'lake', 'sky'] },
+    { id: '2', name: 'Urban Night', dataUri: 'https://picsum.photos/id/20/800/1200', metadata: 'City street at night with light trails from traffic.', folderId: 'folder-2', data_ai_hint: 'city night', width: 800, height: 1200, tags: ['city', 'night', 'traffic'] },
+    { id: '3', name: 'Smiling Person', dataUri: 'https://picsum.photos/id/30/800/600', metadata: 'A close-up portrait of a person smiling warmly.', folderId: 'folder-3', data_ai_hint: 'person smiling', width: 800, height: 600, tags: ['portrait', 'person', 'smiling'] },
+    { id: '4', name: 'Forest Path', dataUri: 'https://picsum.photos/id/40/800/1000', metadata: 'A sunlit path winding through a dense green forest.', folderId: 'folder-1', data_ai_hint: 'forest path', width: 800, height: 1000, tags: ['forest', 'path', 'nature'] },
     { id: '5', name: 'Blurry Photo', dataUri: 'https://picsum.photos/id/50/800/600', metadata: 'Abstract lights, out of focus.', isDefective: true, defectType: 'Blurry', data_ai_hint: 'blurry lights', width: 800, height: 600 },
-    { id: '6', name: 'Modern Architecture', dataUri: 'https://picsum.photos/id/60/800/700', metadata: 'The sharp geometric lines of a modern building against the sky.', folderId: 'folder-2', data_ai_hint: 'modern architecture', width: 800, height: 700 },
+    { id: '6', name: 'Modern Architecture', dataUri: 'https://picsum.photos/id/60/800/700', metadata: 'The sharp geometric lines of a modern building against the sky.', folderId: 'folder-2', data_ai_hint: 'modern architecture', width: 800, height: 700, tags: ['architecture', 'modern', 'building'] },
 ];
 
 export default function GalleryLayout() {
@@ -146,7 +146,7 @@ export default function GalleryLayout() {
     }
   };
 
-  const handleCategorize = async (imageId: string, folderId: string) => {
+  const handleCategorize = async (imageId: string) => {
     const image = images.find(img => img.id === imageId);
     if (!image) return;
 
@@ -158,9 +158,12 @@ export default function GalleryLayout() {
       });
 
       const targetFolder = folders.find(f => f.name === category);
-      
-      setImages(prev => prev.map(img => img.id === imageId ? { ...img, folderId: targetFolder?.id || null } : img));
-      toast({ title: "Categorization Complete", description: `Image moved to "${category}".` });
+      if (targetFolder) {
+        setImages(prev => prev.map(img => img.id === imageId ? { ...img, folderId: targetFolder.id } : img));
+        toast({ title: "Categorization Complete", description: `Image moved to "${category}".` });
+      } else {
+         toast({ title: "Categorization Failed", description: `Could not find a folder named "${category}".`, variant: "destructive" });
+      }
 
     } catch (error) {
         console.error("Categorization failed:", error);
@@ -203,6 +206,14 @@ export default function GalleryLayout() {
     }
   };
 
+  const handleImageDrop = (folderId: string, imageId: string) => {
+    const folder = folders.find(f => f.id === folderId);
+    if (folder) {
+        handleUpdateImage(imageId, { folderId });
+        toast({ title: "Image Moved", description: `Image moved to "${folder.name}".`});
+    }
+  };
+
   const displayedImages = useMemo(() => {
     let filtered = images;
 
@@ -232,6 +243,7 @@ export default function GalleryLayout() {
           activeView={activeView}
           setActiveView={setActiveView}
           onCreateFolder={handleCreateFolder}
+          onImageDrop={handleImageDrop}
         />
       </Sidebar>
       <SidebarInset>

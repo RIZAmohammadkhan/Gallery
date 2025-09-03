@@ -3,13 +3,14 @@
 import { useState } from 'react';
 import Image from "next/image";
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-  SheetFooter
-} from "@/components/ui/sheet";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -17,15 +18,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
@@ -36,7 +28,7 @@ interface ImageDetailProps {
   image: StoredImage;
   folders: Folder[];
   onOpenChange: (open: boolean) => void;
-  onCategorize: (imageId: string, folderId: string) => void;
+  onCategorize: (imageId: string) => void;
   onUpdateImage: (imageId: string, updates: Partial<StoredImage>) => void;
   onDeleteImage: (imageId: string) => void;
   onEditImage: (imageId: string, prompt: string) => Promise<void>;
@@ -66,16 +58,9 @@ export default function ImageDetail({
   const isLoading = !!loadingState;
 
   return (
-    <Sheet open={true} onOpenChange={onOpenChange}>
-      <SheetContent className="sm:max-w-xl w-full flex flex-col">
-        <SheetHeader>
-          <SheetTitle className="truncate">{image.name}</SheetTitle>
-          <SheetDescription>
-            {image.metadata ? `AI: "${image.metadata}"` : "No metadata available."}
-          </SheetDescription>
-          {image.isDefective && <Badge variant="destructive" className="w-fit">{image.defectType}</Badge>}
-        </SheetHeader>
-        <div className="relative flex-1 my-4 rounded-md overflow-hidden">
+    <Dialog open={true} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-4xl w-full h-[90vh] flex flex-col md:flex-row p-0 gap-0">
+        <div className="relative w-full md:w-2/3 h-1/2 md:h-full bg-black">
           <Image
             src={image.dataUri}
             alt={image.name}
@@ -89,68 +74,87 @@ export default function ImageDetail({
             </div>
           )}
         </div>
-        <SheetFooter className="mt-auto flex-col sm:flex-col sm:space-x-0 gap-2">
-          {!image.isDefective ? (
-            <>
-              <div className="flex gap-2">
-                <Select onValueChange={(folderId) => onUpdateImage(image.id, { folderId })} value={image.folderId ?? ""}>
-                    <SelectTrigger disabled={isLoading}>
-                      <SelectValue placeholder="Categorize..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {folders.map(folder => (
-                        <SelectItem key={folder.id} value={folder.id}>{folder.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                </Select>
-                <Button variant="outline" size="icon" onClick={() => onCategorize(image.id, image.folderId || '')} disabled={isLoading}>
-                    <FolderSync className="h-4 w-4" />
-                    <span className="sr-only">Categorize with AI</span>
-                </Button>
-              </div>
-
-              <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-                <DialogTrigger asChild>
-                    <Button className="w-full" disabled={isLoading}>
-                        <Sparkles className="mr-2 h-4 w-4" /> Edit with AI
-                    </Button>
-                </DialogTrigger>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Edit Image with AI</DialogTitle>
-                        <DialogDescription>Describe the changes you want to make to the image.</DialogDescription>
-                    </DialogHeader>
-                    <Textarea 
-                        placeholder="e.g. make the sky purple, add a cat on the bench..." 
-                        value={editPrompt}
-                        onChange={(e) => setEditPrompt(e.target.value)}
-                        rows={3}
-                    />
-                    <DialogFooter>
-                        <Button onClick={handleEdit} disabled={isLoading}>
-                            {isLoading ? <Loader2 className="animate-spin mr-2" /> : <Sparkles className="mr-2 h-4 w-4" />}
-                            Generate
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-              </Dialog>
-              
-              <Button variant="destructive" className="w-full" onClick={() => onUpdateImage(image.id, { isDefective: true, defectType: 'Manual' })} disabled={isLoading}>
-                <Trash2 className="mr-2 h-4 w-4" /> Move to Bin
-              </Button>
-            </>
-          ) : (
-             <div className="flex gap-2 w-full">
-                <Button variant="outline" className="w-full" onClick={() => onUpdateImage(image.id, { isDefective: false })} disabled={isLoading}>
-                    <RotateCcw className="mr-2 h-4 w-4" /> Restore
-                </Button>
-                <Button variant="destructive" className="w-full" onClick={() => onDeleteImage(image.id)} disabled={isLoading}>
-                    <Trash2 className="mr-2 h-4 w-4" /> Delete Permanently
-                </Button>
+        <div className="w-full md:w-1/3 h-1/2 md:h-full flex flex-col p-6 overflow-y-auto">
+          <DialogHeader className="text-left">
+            <DialogTitle className="text-2xl mb-2">{image.name}</DialogTitle>
+            <DialogDescription>
+              {image.metadata}
+            </DialogDescription>
+             {image.isDefective && <Badge variant="destructive" className="w-fit my-2">{image.defectType}</Badge>}
+          </DialogHeader>
+          
+          {image.tags && image.tags.length > 0 && (
+            <div className="my-4">
+                <h3 className="font-semibold mb-2 text-foreground">Tags</h3>
+                <div className="flex flex-wrap gap-2">
+                    {image.tags.map(tag => <Badge key={tag} variant="secondary">{tag}</Badge>)}
+                </div>
             </div>
           )}
-        </SheetFooter>
-      </SheetContent>
-    </Sheet>
+
+          <div className="mt-auto space-y-2 pt-4">
+             {!image.isDefective ? (
+              <>
+                <div className="flex gap-2">
+                  <Select onValueChange={(folderId) => onUpdateImage(image.id, { folderId })} value={image.folderId ?? ""}>
+                      <SelectTrigger disabled={isLoading} className="flex-grow">
+                        <SelectValue placeholder="Move to folder..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {folders.map(folder => (
+                          <SelectItem key={folder.id} value={folder.id}>{folder.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                  </Select>
+                  <Button variant="outline" size="icon" onClick={() => onCategorize(image.id)} disabled={isLoading} title="Categorize with AI">
+                      <FolderSync className="h-4 w-4" />
+                      <span className="sr-only">Categorize with AI</span>
+                  </Button>
+                </div>
+
+                <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+                  <DialogTrigger asChild>
+                      <Button className="w-full" variant="outline" disabled={isLoading}>
+                          <Sparkles className="mr-2 h-4 w-4" /> Edit with AI
+                      </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                      <DialogHeader>
+                          <DialogTitle>Edit Image with AI</DialogTitle>
+                          <DialogDescription>Describe the changes you want to make to the image.</DialogDescription>
+                      </DialogHeader>
+                      <Textarea 
+                          placeholder="e.g. make the sky purple, add a cat on the bench..." 
+                          value={editPrompt}
+                          onChange={(e) => setEditPrompt(e.target.value)}
+                          rows={3}
+                      />
+                      <DialogFooter>
+                          <Button onClick={handleEdit} disabled={isLoading}>
+                              {isLoading ? <Loader2 className="animate-spin mr-2" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                              Generate
+                          </Button>
+                      </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+                
+                <Button variant="destructive" className="w-full" onClick={() => onUpdateImage(image.id, { isDefective: true, defectType: 'Manual' })} disabled={isLoading}>
+                  <Trash2 className="mr-2 h-4 w-4" /> Move to Bin
+                </Button>
+              </>
+            ) : (
+               <div className="flex gap-2 w-full">
+                  <Button variant="outline" className="w-full" onClick={() => onUpdateImage(image.id, { isDefective: false })} disabled={isLoading}>
+                      <RotateCcw className="mr-2 h-4 w-4" /> Restore
+                  </Button>
+                  <Button variant="destructive" className="w-full" onClick={() => onDeleteImage(image.id)} disabled={isLoading}>
+                      <Trash2 className="mr-2 h-4 w-4" /> Delete Permanently
+                  </Button>
+              </div>
+            )}
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
