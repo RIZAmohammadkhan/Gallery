@@ -7,7 +7,7 @@ const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 const lexend = Lexend({ subsets: ['latin'], variable: '--font-lexend' });
 
 export const metadata: Metadata = {
-  title: 'Gemini Gallery',
+  title: 'Gallery',
   description: 'An intelligent gallery app powered by Gemini.',
 };
 

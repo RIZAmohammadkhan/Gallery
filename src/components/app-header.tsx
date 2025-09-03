@@ -18,7 +18,7 @@ export default function AppHeader({ onFileUpload, onSearch, isSearching }: AppHe
        <SidebarTrigger className="md:hidden" />
       <div className="flex items-center gap-2">
         <GalleryHorizontal className="h-6 w-6 text-primary" />
-        <h1 className="text-xl font-headline font-semibold tracking-tight md:text-2xl">Gemini Gallery</h1>
+        <h1 className="text-xl font-headline font-semibold tracking-tight md:text-2xl">Gallery</h1>
       </div>
       <div className="flex w-full items-center gap-4 md:ml-auto md:gap-2 lg:gap-4">
         <form className="ml-auto flex-1 sm:flex-initial" onSubmit={(e) => e.preventDefault()}>
