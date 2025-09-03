@@ -18,7 +18,6 @@ import AppSidebar from "./app-sidebar";
 import ImageGrid from "./image-grid";
 import ImageDetail from "./image-detail";
 import { ShareDialog } from "./share-dialog";
-import { ai } from "@/ai/genkit";
 
 const initialFolders: Folder[] = [
   { id: "folder-1", name: "Landscapes" },
@@ -101,7 +100,7 @@ export default function GalleryLayout() {
         img.src = e.target?.result as string;
       };
       reader.onerror = reject;
-      reader.readDataURL(file);
+      reader.readAsDataURL(file);
     });
   };
 
@@ -158,6 +157,11 @@ export default function GalleryLayout() {
               description: `${file.name} uploaded but couldn't be categorized.`,
             });
         }
+      } else if (defectRes.isDefective) {
+         toast({
+          title: "Upload Successful",
+          description: `${file.name} has been uploaded and moved to Bin.`,
+        });
       } else {
          toast({
           title: "Upload Successful",
