@@ -89,12 +89,6 @@ Visit [http://localhost:9002](http://localhost:9002) and:
 
 ## 🐳 Production Deployment
 
-### Docker (Recommended)
-
-```bash
-# Build and run with Docker Compose
-docker-compose up -d
-```
 
 ### Vercel
 
@@ -109,8 +103,6 @@ docker-compose up -d
 npm run build
 npm start
 ```
-
-See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed deployment instructions.
 
 ## 🏗️ Architecture
 
@@ -177,6 +169,5 @@ This project is open source and available under the [MIT License](LICENSE).
 
 ## 🆘 Support
 
-- 📖 Check [DEPLOYMENT.md](./DEPLOYMENT.md) for deployment help
 - 🐛 Report issues on GitHub
 - 💡 Feature requests welcome!
