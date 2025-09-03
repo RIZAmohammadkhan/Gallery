@@ -70,13 +70,14 @@ export default function AppSidebar({ folders, activeView, setActiveView, onCreat
   return (
     <>
       <SidebarHeader />
-      <SidebarContent>
+      <SidebarContent className="p-2">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
               onClick={() => setActiveView("all")}
               isActive={activeView === "all"}
               tooltip="All Images"
+              className="font-medium"
             >
               <LayoutGrid />
               <span>All Images</span>
@@ -87,6 +88,7 @@ export default function AppSidebar({ folders, activeView, setActiveView, onCreat
               onClick={() => setActiveView("uncategorized")}
               isActive={activeView === "uncategorized"}
               tooltip="Uncategorized"
+              className="font-medium"
             >
               <HelpCircle />
               <span>Uncategorized</span>
@@ -122,6 +124,7 @@ export default function AppSidebar({ folders, activeView, setActiveView, onCreat
               onClick={() => setActiveView("bin")}
               isActive={activeView === "bin"}
               tooltip="Bin"
+              className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
             >
               <Trash2 />
               <span>Bin</span>

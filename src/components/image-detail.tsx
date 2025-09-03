@@ -18,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
@@ -61,7 +61,7 @@ export default function ImageDetail({
   return (
     <Dialog open={true} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl w-full h-[90vh] flex flex-col md:flex-row p-0 gap-0">
-        <div className="relative w-full md:w-2/3 h-1/2 md:h-full bg-black">
+        <div className="relative w-full md:w-2/3 h-1/2 md:h-full bg-black/50">
           <Image
             src={image.dataUri}
             alt={image.name}
@@ -76,8 +76,8 @@ export default function ImageDetail({
           )}
         </div>
         <div className="w-full md:w-1/3 h-1/2 md:h-full flex flex-col p-6 overflow-y-auto">
-          <DialogHeader className="text-left">
-            <DialogTitle className="text-2xl mb-2">{image.name}</DialogTitle>
+          <DialogHeader className="text-left mb-4">
+            <DialogTitle className="text-2xl font-headline tracking-tight mb-2">{image.name}</DialogTitle>
             <DialogDescription>
               {image.metadata}
             </DialogDescription>
@@ -93,7 +93,8 @@ export default function ImageDetail({
             </div>
           )}
 
-          <div className="mt-auto space-y-2 pt-4">
+          <div className="mt-auto space-y-4 pt-4">
+             <TooltipProvider>
              {!image.isDefective ? (
               <>
                 <div className="flex gap-2">
@@ -124,7 +125,8 @@ export default function ImageDetail({
                           <TooltipTrigger asChild>
                               <DialogTrigger asChild>
                                   <Button className="w-full" variant="outline" disabled={isLoading}>
-                                      <Sparkles className="h-4 w-4" />
+                                      <Sparkles className="h-4 w-4 mr-2" />
+                                      Edit with AI
                                   </Button>
                               </DialogTrigger>
                           </TooltipTrigger>
@@ -152,7 +154,7 @@ export default function ImageDetail({
                     
                     <Tooltip>
                       <TooltipTrigger asChild>
-                          <Button variant="destructive" className="w-full" onClick={() => onUpdateImage(image.id, { isDefective: true, defectType: 'Manual' })} disabled={isLoading}>
+                          <Button variant="outline" size="icon" onClick={() => onUpdateImage(image.id, { isDefective: true, defectType: 'Manual' })} disabled={isLoading}>
                               <Trash2 className="h-4 w-4" />
                           </Button>
                       </TooltipTrigger>
@@ -165,7 +167,8 @@ export default function ImageDetail({
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button variant="outline" className="w-full" onClick={() => onUpdateImage(image.id, { isDefective: false })} disabled={isLoading}>
-                          <RotateCcw className="h-4 w-4" />
+                          <RotateCcw className="h-4 w-4 mr-2" />
+                          Restore
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent>Restore</TooltipContent>
@@ -173,13 +176,15 @@ export default function ImageDetail({
                    <Tooltip>
                       <TooltipTrigger asChild>
                           <Button variant="destructive" className="w-full" onClick={() => onDeleteImage(image.id)} disabled={isLoading}>
-                              <Trash2 className="h-4 w-4" />
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Delete
                           </Button>
                       </TooltipTrigger>
                       <TooltipContent>Delete Permanently</TooltipContent>
                     </Tooltip>
               </div>
             )}
+            </TooltipProvider>
           </div>
         </div>
       </DialogContent>
