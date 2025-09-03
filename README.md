@@ -9,8 +9,6 @@ AI Gallery Studio is a cutting-edge web application designed to revolutionize ho
 From intelligent metadata generation and defect detection to semantic search and AI-powered editing, AI Gallery Studio puts the power of artificial intelligence at your fingertips, making photo management intuitive and enjoyable.
 
 ![AI Gallery Studio Screenshot](https://placehold.co/800x450/201b2c/8b725c?text=AI+Gallery+Studio+UI)
-*(placeholder for your application's screenshot)*
-
 ## ✨ Key Features
 
 This application isn't just a simple image viewer; it's an intelligent assistant for your photos:
@@ -93,8 +91,8 @@ This method provides a consistent, isolated environment for the application and 
 **1. Clone the Repository**
 
 ```bash
-git clone <your-repository-url>
-cd studio
+git clone https://github.com/RIZAmohammadkhan/Gallery.git
+cd gallery
 ```
 
 **2. Configure Environment Variables**
