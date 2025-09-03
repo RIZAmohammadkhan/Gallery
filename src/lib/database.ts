@@ -172,17 +172,12 @@ export class DatabaseService {
         { $inc: { accessCount: 1 } }
       );
 
-      // Get the images
-      const images = client.db().collection('images');
-      const galleryImages = await images.find({ 
-        userId: gallery.userId, 
-        id: { $in: gallery.imageIds } 
-      }).toArray();
-
+      // Use stored image data instead of fetching from images collection
+      // This ensures the shared images are always available even if original images are deleted
       return {
         id: gallery.id,
         title: gallery.title,
-        images: galleryImages.map((img: any) => this.dbImageToStoredImage(img)),
+        images: gallery.imageData || [], // Use stored image data
         createdAt: gallery.createdAt,
         expiresAt: gallery.expiresAt,
         accessCount: gallery.accessCount + 1,
@@ -218,8 +213,6 @@ export class DatabaseService {
         isActive: true 
       }).toArray();
       
-      // Get the images for each gallery
-      const images = client.db().collection('images');
       const result = [];
       
       for (const gallery of userGalleries) {
@@ -233,15 +226,12 @@ export class DatabaseService {
           continue;
         }
 
-        const galleryImages = await images.find({ 
-          userId: gallery.userId, 
-          id: { $in: gallery.imageIds } 
-        }).toArray();
-
+        // Use stored image data instead of fetching from images collection
+        // This ensures shared galleries work even if original images are deleted
         result.push({
           id: gallery.id,
           title: gallery.title,
-          images: galleryImages.map((img: any) => this.dbImageToStoredImage(img)),
+          images: gallery.imageData || [], // Use stored image data
           createdAt: gallery.createdAt,
           expiresAt: gallery.expiresAt,
           accessCount: gallery.accessCount,

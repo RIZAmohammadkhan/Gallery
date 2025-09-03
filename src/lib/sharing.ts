@@ -25,6 +25,7 @@ export async function createSharedGallery(
     id: shareId,
     title,
     imageIds: images.map(img => img.id),
+    imageData: images, // Store the complete image data for persistent sharing
     expiresAt,
     accessCount: 0,
     isActive: true,

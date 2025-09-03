@@ -25,6 +25,15 @@ export default function SharedGalleryPage() {
           const response = await fetch(`/api/share/${shareId}`);
           if (response.ok) {
             const sharedGallery = await response.json();
+            
+            // Convert date strings to Date objects
+            if (sharedGallery.createdAt) {
+              sharedGallery.createdAt = new Date(sharedGallery.createdAt);
+            }
+            if (sharedGallery.expiresAt) {
+              sharedGallery.expiresAt = new Date(sharedGallery.expiresAt);
+            }
+            
             setGallery(sharedGallery);
           } else {
             setError("Gallery not found or has expired");
@@ -96,6 +105,7 @@ export default function SharedGalleryPage() {
   };
 
   const isExpiringSoon = gallery.expiresAt && 
+    gallery.expiresAt instanceof Date &&
     gallery.expiresAt.getTime() - Date.now() < 24 * 60 * 60 * 1000; // Less than 24 hours
 
   return (
@@ -119,12 +129,12 @@ export default function SharedGalleryPage() {
           <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
             <div className="flex items-center gap-1">
               <Clock className="h-4 w-4" />
-              <span>Created {formatDate(gallery.createdAt)}</span>
+              <span>Created {gallery.createdAt instanceof Date ? formatDate(gallery.createdAt) : 'Unknown'}</span>
             </div>
             {gallery.expiresAt && (
               <div className="flex items-center gap-1">
                 <Clock className="h-4 w-4" />
-                <span>Expires {formatDate(gallery.expiresAt)}</span>
+                <span>Expires {gallery.expiresAt instanceof Date ? formatDate(gallery.expiresAt) : 'Unknown'}</span>
               </div>
             )}
           </div>

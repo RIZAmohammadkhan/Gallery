@@ -47,6 +47,11 @@ export interface DbSharedGallery {
   id: string; // Share ID
   title: string;
   imageIds: string[]; // Array of image IDs
+  imageData: Array<{ // Store actual image data for sharing
+    id: string;
+    name: string;
+    dataUri: string;
+  }>;
   createdAt: Date;
   expiresAt?: Date;
   accessCount: number;
