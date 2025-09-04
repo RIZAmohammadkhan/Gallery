@@ -24,6 +24,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Sparkles, FolderSync, Trash2, RotateCcw, Download } from "lucide-react";
 import type { StoredImage, Folder } from "@/lib/types";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface ImageDetailProps {
   image: StoredImage;
@@ -48,6 +49,7 @@ export default function ImageDetail({
 }: ImageDetailProps) {
   const [editPrompt, setEditPrompt] = useState('');
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const isMobile = useIsMobile();
 
   const handleEdit = async () => {
     if (!editPrompt.trim()) return;
@@ -70,8 +72,16 @@ export default function ImageDetail({
 
   return (
     <Dialog open={true} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl w-full h-[90vh] flex flex-col md:flex-row p-0 gap-0">
-        <div className="relative w-full md:w-2/3 h-1/2 md:h-full bg-black/50">
+      <DialogContent className={`${
+        isMobile 
+          ? "max-w-[95vw] w-full h-[95vh] flex flex-col p-0 gap-0" 
+          : "max-w-4xl w-full h-[90vh] flex flex-col md:flex-row p-0 gap-0"
+      }`}>
+        <div className={`relative ${
+          isMobile 
+            ? "w-full h-[60vh] bg-black/50" 
+            : "w-full md:w-2/3 h-1/2 md:h-full bg-black/50"
+        }`}>
           <Image
             src={image.dataUri}
             alt={image.name}
@@ -80,15 +90,21 @@ export default function ImageDetail({
           />
            {isLoading && (
             <div className="absolute inset-0 bg-background/80 flex flex-col items-center justify-center text-foreground p-2 text-center">
-              <Loader2 className="animate-spin h-8 w-8 mb-2" />
-              <span className="text-sm font-medium">{typeof loadingState === 'string' ? loadingState : 'Processing...'}</span>
+              <Loader2 className="animate-spin h-6 w-6 sm:h-8 sm:w-8 mb-2" />
+              <span className="text-xs sm:text-sm font-medium">{typeof loadingState === 'string' ? loadingState : 'Processing...'}</span>
             </div>
           )}
         </div>
-        <div className="w-full md:w-1/3 h-1/2 md:h-full flex flex-col p-6 overflow-y-auto">
+        <div className={`${
+          isMobile 
+            ? "w-full h-[35vh] flex flex-col p-4 overflow-y-auto" 
+            : "w-full md:w-1/3 h-1/2 md:h-full flex flex-col p-6 overflow-y-auto"
+        }`}>
           <DialogHeader className="text-left mb-4">
-            <DialogTitle className="text-2xl font-headline tracking-tight mb-2">{image.name}</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className={`${
+              isMobile ? "text-lg" : "text-2xl"
+            } font-headline tracking-tight mb-2`}>{image.name}</DialogTitle>
+            <DialogDescription className="text-sm">
               {image.metadata}
             </DialogDescription>
              {image.isDefective && <Badge variant="destructive" className="w-fit my-2">{image.defectType}</Badge>}
@@ -107,7 +123,7 @@ export default function ImageDetail({
              <TooltipProvider>
              {!image.isDefective ? (
               <>
-                <div className="flex gap-2">
+                <div className={`flex gap-2 ${isMobile ? 'flex-col' : ''}`}>
                   <Select onValueChange={(folderId) => onUpdateImage(image.id, { folderId })} value={image.folderId ?? ""}>
                       <SelectTrigger disabled={isLoading} className="flex-grow">
                         <SelectValue placeholder="Move to folder..." />
@@ -120,16 +136,23 @@ export default function ImageDetail({
                   </Select>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Button variant="outline" size="icon" onClick={() => onCategorize(image.id)} disabled={isLoading}>
+                      <Button 
+                        variant="outline" 
+                        size={isMobile ? "default" : "icon"} 
+                        onClick={() => onCategorize(image.id)} 
+                        disabled={isLoading}
+                        className={isMobile ? "w-full" : ""}
+                      >
                           <FolderSync className="h-4 w-4" />
-                          <span className="sr-only">Categorize with AI</span>
+                          {isMobile && <span className="ml-2">Categorize with AI</span>}
+                          {!isMobile && <span className="sr-only">Categorize with AI</span>}
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent>Categorize with AI</TooltipContent>
                   </Tooltip>
                 </div>
 
-                <div className="flex gap-2">
+                <div className={`flex gap-2 ${isMobile ? 'flex-col' : ''}`}>
                     <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
                       <Tooltip>
                           <TooltipTrigger asChild>
@@ -142,7 +165,7 @@ export default function ImageDetail({
                           </TooltipTrigger>
                           <TooltipContent>Edit with AI</TooltipContent>
                       </Tooltip>
-                      <DialogContent>
+                      <DialogContent className={isMobile ? "max-w-[95vw] w-full" : ""}>
                           <DialogHeader>
                               <DialogTitle>Edit Image with AI</DialogTitle>
                               <DialogDescription>Describe the changes you want to make to the image.</DialogDescription>
@@ -152,32 +175,59 @@ export default function ImageDetail({
                               value={editPrompt}
                               onChange={(e) => setEditPrompt(e.target.value)}
                               rows={3}
+                              className="text-sm"
                           />
                           <DialogFooter>
-                              <Button onClick={handleEdit} disabled={isLoading}>
+                              <Button onClick={handleEdit} disabled={isLoading} className="w-full sm:w-auto">
                                   {isLoading ? <Loader2 className="animate-spin mr-2" /> : <Sparkles className="mr-2 h-4 w-4" />}
                                   Generate
                               </Button>
                           </DialogFooter>
                       </DialogContent>
                     </Dialog>
+                    {!isMobile && (
+                      <>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                              <Button variant="outline" size="icon" onClick={handleDownload} disabled={isLoading}>
+                                  <Download className="h-4 w-4" />
+                              </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Download</TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                              <Button variant="destructive-outline" size="icon" onClick={() => onUpdateImage(image.id, { isDefective: true, defectType: 'Manual' })} disabled={isLoading}>
+                                  <Trash2 className="h-4 w-4" />
+                              </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Move to Bin</TooltipContent>
+                        </Tooltip>
+                      </>
+                    )}
+                </div>
+                {isMobile && (
+                  <div className="flex gap-2">
                     <Tooltip>
                       <TooltipTrigger asChild>
-                          <Button variant="outline" size="icon" onClick={handleDownload} disabled={isLoading}>
-                              <Download className="h-4 w-4" />
+                          <Button variant="outline" className="w-full" onClick={handleDownload} disabled={isLoading}>
+                              <Download className="h-4 w-4 mr-2" />
+                              Download
                           </Button>
                       </TooltipTrigger>
                       <TooltipContent>Download</TooltipContent>
                     </Tooltip>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                          <Button variant="destructive-outline" size="icon" onClick={() => onUpdateImage(image.id, { isDefective: true, defectType: 'Manual' })} disabled={isLoading}>
-                              <Trash2 className="h-4 w-4" />
+                          <Button variant="destructive" className="w-full" onClick={() => onUpdateImage(image.id, { isDefective: true, defectType: 'Manual' })} disabled={isLoading}>
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Move to Bin
                           </Button>
                       </TooltipTrigger>
                       <TooltipContent>Move to Bin</TooltipContent>
                     </Tooltip>
-                </div>
+                  </div>
+                )}
               </>
             ) : (
                <div className="flex gap-2 w-full">

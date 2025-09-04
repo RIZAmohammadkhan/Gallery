@@ -5,6 +5,7 @@ import { SidebarProvider, Sidebar, SidebarInset, SidebarRail } from "@/component
 import { Folder, StoredImage } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from 'next/navigation';
+import { useIsMobile } from "@/hooks/use-mobile";
 import { UploadCloud } from 'lucide-react';
 
 
@@ -65,6 +66,7 @@ export default function GalleryLayout() {
 
   const { toast } = useToast();
   const _router = useRouter();
+  const isMobile = useIsMobile();
 
   // File upload state for drag and drop
   const [isDraggingFiles, setIsDraggingFiles] = useState(false);
@@ -1143,7 +1145,7 @@ export default function GalleryLayout() {
 
   return (
     <SidebarProvider>
-      <Sidebar collapsible="icon">
+      <Sidebar collapsible={isMobile ? "offcanvas" : "icon"}>
         <AppSidebar
           folders={folders}
           activeView={activeView}
@@ -1152,6 +1154,7 @@ export default function GalleryLayout() {
           onDeleteFolder={handleDeleteFolder}
           onImageDrop={handleImageDrop}
           onFileUpload={handleFileUpload}
+          onOpenSettings={() => setIsSettingsOpen(true)}
         />
         <SidebarRail />
       </Sidebar>
@@ -1176,7 +1179,7 @@ export default function GalleryLayout() {
             activeView={activeView}
           />
           <main 
-            className="flex-1 overflow-y-auto p-4 md:p-6 relative"
+            className="flex-1 overflow-y-auto p-2 sm:p-4 md:p-6 relative"
             onDragOver={handleFileDragOver}
             onDragLeave={handleFileDragLeave}
             onDrop={handleFileDrop}
@@ -1184,10 +1187,10 @@ export default function GalleryLayout() {
             {/* Drag overlay */}
             {isDraggingFiles && (
               <div className="absolute inset-0 bg-primary/10 border-2 border-dashed border-primary z-50 flex items-center justify-center backdrop-blur-sm">
-                <div className="text-center p-8 rounded-lg bg-background/80 shadow-lg">
-                  <UploadCloud className="h-16 w-16 text-primary mx-auto mb-4" />
-                  <h3 className="text-xl font-semibold mb-2">Drop Images Here</h3>
-                  <p className="text-muted-foreground">Drop your image files to upload them</p>
+                <div className="text-center p-4 sm:p-8 rounded-lg bg-background/80 shadow-lg">
+                  <UploadCloud className="h-12 w-12 sm:h-16 sm:w-16 text-primary mx-auto mb-4" />
+                  <h3 className="text-lg sm:text-xl font-semibold mb-2">Drop Images Here</h3>
+                  <p className="text-sm sm:text-base text-muted-foreground">Drop your image files to upload them</p>
                 </div>
               </div>
             )}

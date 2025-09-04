@@ -19,6 +19,17 @@ const lexend = Lexend({
 export const metadata: Metadata = {
   title: 'AI Gallery - Smart Photo Organization',
   description: 'An intelligent gallery app powered by AI for smart photo organization and management.',
+  viewport: 'width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes',
+  themeColor: '#a8937c',
+  manifest: '/manifest.json',
+  formatDetection: {
+    telephone: false,
+  },
+  other: {
+    'mobile-web-app-capable': 'yes',
+    'apple-mobile-web-app-capable': 'yes',
+    'apple-mobile-web-app-status-bar-style': 'black-translucent',
+  }
 };
 
 export default function RootLayout({

@@ -18,6 +18,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Share2, Copy, ExternalLink, Clock, Info } from 'lucide-react';
 import { copyToClipboard, getShareUrl } from '@/lib/sharing-client';
 import { useToast } from '@/hooks/use-toast';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface ShareDialogProps {
   isOpen: boolean;
@@ -34,6 +35,7 @@ export function ShareDialog({ isOpen, onOpenChange, selectedImages, selectedImag
   const [isGenerating, setIsGenerating] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
   const { toast } = useToast();
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     if (copySuccess) {
@@ -118,50 +120,50 @@ export function ShareDialog({ isOpen, onOpenChange, selectedImages, selectedImag
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className={`${isMobile ? "max-w-[95vw] w-full" : "sm:max-w-[500px]"}`}>
         <DialogHeader>
-          <DialogTitle>Share Images</DialogTitle>
-          <DialogDescription>
+          <DialogTitle className={isMobile ? "text-lg" : ""}>Share Images</DialogTitle>
+          <DialogDescription className={isMobile ? "text-sm" : ""}>
             Create a shareable link for the {selectedImageCount} selected image{selectedImageCount !== 1 ? 's' : ''}.
           </DialogDescription>
         </DialogHeader>
         
-        <div className="grid gap-6 py-4">
+        <div className="grid gap-4 sm:gap-6 py-4">
           {/* Title Input */}
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="title" className="text-right">
+          <div className={`grid ${isMobile ? "grid-cols-1 gap-2" : "grid-cols-4 gap-4"} items-center`}>
+            <Label htmlFor="title" className={isMobile ? "" : "text-right"}>
               Title
             </Label>
             <Input
               id="title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="col-span-3"
+              className={isMobile ? "" : "col-span-3"}
               placeholder="Enter gallery title"
             />
           </div>
 
           {/* Expiration Settings */}
-          <div className="space-y-4">
+          <div className="space-y-3 sm:space-y-4">
             <div className="flex items-center space-x-2">
               <Switch
                 id="expiration"
                 checked={hasExpiration}
                 onCheckedChange={setHasExpiration}
               />
-              <Label htmlFor="expiration" className="flex items-center gap-2">
+              <Label htmlFor="expiration" className="flex items-center gap-2 text-sm">
                 <Clock className="h-4 w-4" />
                 Set expiration date
               </Label>
             </div>
             
             {hasExpiration && (
-              <div className="grid grid-cols-4 items-center gap-4 pl-6">
-                <Label htmlFor="expiration-days" className="text-right text-sm">
+              <div className={`grid ${isMobile ? "grid-cols-1 gap-2" : "grid-cols-4 gap-4"} items-center ${isMobile ? "" : "pl-6"}`}>
+                <Label htmlFor="expiration-days" className={`text-sm ${isMobile ? "" : "text-right"}`}>
                   Expires in
                 </Label>
                 <Select value={expirationDays} onValueChange={setExpirationDays}>
-                  <SelectTrigger className="col-span-3">
+                  <SelectTrigger className={isMobile ? "" : "col-span-3"}>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -180,28 +182,32 @@ export function ShareDialog({ isOpen, onOpenChange, selectedImages, selectedImag
           {shareUrl && (
             <div className="space-y-3">
               <Label className="text-sm font-medium">Shareable Link</Label>
-              <div className="flex gap-2">
+              <div className={`flex gap-2 ${isMobile ? "flex-col" : ""}`}>
                 <Input
                   value={shareUrl}
                   readOnly
-                  className="font-mono text-sm"
+                  className="font-mono text-xs sm:text-sm flex-1"
                 />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleCopyUrl}
-                  className="shrink-0"
-                >
-                  <Copy className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={openInNewTab}
-                  className="shrink-0"
-                >
-                  <ExternalLink className="h-4 w-4" />
-                </Button>
+                <div className={`flex gap-2 ${isMobile ? "w-full" : "shrink-0"}`}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleCopyUrl}
+                    className={`${isMobile ? "flex-1" : "shrink-0"}`}
+                  >
+                    <Copy className="h-4 w-4" />
+                    {isMobile && <span className="ml-2">Copy</span>}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={openInNewTab}
+                    className={`${isMobile ? "flex-1" : "shrink-0"}`}
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    {isMobile && <span className="ml-2">Open</span>}
+                  </Button>
+                </div>
               </div>
               
               {copySuccess && (
@@ -218,14 +224,14 @@ export function ShareDialog({ isOpen, onOpenChange, selectedImages, selectedImag
           {/* Info Alert */}
           <Alert>
             <Info className="h-4 w-4" />
-            <AlertDescription className="text-sm">
+            <AlertDescription className="text-xs sm:text-sm">
               Anyone with this link can view the selected images. 
               {hasExpiration && ` The link will expire in ${expirationDays} day${parseInt(expirationDays) !== 1 ? 's' : ''}.`}
             </AlertDescription>
           </Alert>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className={isMobile ? "flex-col gap-2" : ""}>
           {shareUrl ? (
             <Button
               onClick={() => onOpenChange(false)}
@@ -238,12 +244,14 @@ export function ShareDialog({ isOpen, onOpenChange, selectedImages, selectedImag
               <Button
                 variant="outline"
                 onClick={() => onOpenChange(false)}
+                className={isMobile ? "w-full" : ""}
               >
                 Cancel
               </Button>
               <Button
                 onClick={handleShareClick}
                 disabled={selectedImageCount === 0 || !title.trim() || isGenerating}
+                className={isMobile ? "w-full" : ""}
               >
                 {isGenerating ? (
                   <>Generating...</>
