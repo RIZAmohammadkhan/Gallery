@@ -48,10 +48,67 @@ export default function SignUp() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Client-side validation
+    if (!name.trim()) {
+      toast({
+        title: 'Name Required',
+        description: 'Please enter your full name.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
+    if (name.trim().length < 2) {
+      toast({
+        title: 'Invalid Name',
+        description: 'Name must be at least 2 characters long.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
+    if (!email.trim()) {
+      toast({
+        title: 'Email Required',
+        description: 'Please enter your email address.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
+    // Basic email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      toast({
+        title: 'Invalid Email Format',
+        description: 'Please enter a valid email address.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
+    if (!password) {
+      toast({
+        title: 'Password Required',
+        description: 'Please enter a password.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
+    if (password.length < 6) {
+      toast({
+        title: 'Password Too Short',
+        description: 'Password must be at least 6 characters long.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
     if (password !== confirmPassword) {
       toast({
-        title: 'Error',
-        description: 'Passwords do not match',
+        title: 'Passwords Do Not Match',
+        description: 'Please make sure both passwords are identical.',
         variant: 'destructive',
       });
       return;
@@ -66,8 +123,8 @@ export default function SignUp() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          name,
-          email: email.toLowerCase(), // Convert to lowercase for consistency
+          name: name.trim(),
+          email: email.toLowerCase(),
           password,
         }),
       });
@@ -76,38 +133,62 @@ export default function SignUp() {
 
       if (response.ok) {
         toast({
-          title: 'Success',
-          description: 'Account created successfully! Signing you in...',
+          title: 'Account Created Successfully!',
+          description: 'Welcome to AI Gallery! Signing you in...',
         });
         
         // Automatically sign in the user after successful registration
         const signInResult = await signIn('credentials', {
           email: email.toLowerCase(),
           password,
-          callbackUrl: '/',
-          redirect: true,
+          redirect: false,
         });
 
-        // If we reach here, signin failed
-        if (signInResult?.error) {
+        if (signInResult?.ok) {
+          // Successfully signed in, redirect to home
+          router.push('/');
+          router.refresh();
+        } else {
           // If auto-signin fails, redirect to signin page
           toast({
-            title: 'Account created',
-            description: 'Please sign in with your new account.',
+            title: 'Account Created',
+            description: 'Your account has been created. Please sign in with your new credentials.',
           });
           router.push('/auth/signin');
         }
       } else {
+        // Handle specific error cases
+        let errorMessage = 'Something went wrong. Please try again.';
+        
+        if (response.status === 400) {
+          if (data.error === 'User already exists with this email') {
+            errorMessage = 'An account with this email address already exists. Please use a different email or try signing in.';
+          } else if (data.error === 'Validation error' && data.details) {
+            // Handle Zod validation errors
+            const validationErrors = data.details.map((err: any) => err.message).join(', ');
+            errorMessage = `Validation failed: ${validationErrors}`;
+          } else {
+            errorMessage = data.error || 'Invalid registration data.';
+          }
+        } else if (response.status === 503) {
+          errorMessage = 'Database connection failed. Please try again later.';
+        } else if (response.status === 500) {
+          errorMessage = 'Server error occurred. Please try again later.';
+        } else {
+          errorMessage = data.error || 'Registration failed.';
+        }
+        
         toast({
-          title: 'Error',
-          description: data.error || 'Something went wrong',
+          title: 'Registration Failed',
+          description: errorMessage,
           variant: 'destructive',
         });
       }
-    } catch (_error) {
+    } catch (error) {
+      console.error('Registration error:', error);
       toast({
-        title: 'Error',
-        description: 'Something went wrong. Please try again.',
+        title: 'Network Error',
+        description: 'Unable to connect to the server. Please check your internet connection and try again.',
         variant: 'destructive',
       });
     } finally {

@@ -115,21 +115,66 @@ export function SettingsDialog({ isOpen, onOpenChange }: SettingsDialogProps) {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to delete account');
+        const errorData = await response.json().catch(() => ({}));
+        let errorMessage = 'There was an error deleting your account. Please try again.';
+        
+        if (response.status === 401) {
+          errorMessage = 'Session expired. Please sign in again and try deleting your account.';
+        } else if (response.status === 404) {
+          errorMessage = 'User account not found or already deleted.';
+        } else if (response.status === 500) {
+          errorMessage = 'Server error occurred while deleting your account. Please try again later.';
+        } else if (response.status === 503) {
+          errorMessage = 'Database connection error. Please try again later.';
+        } else if (errorData.error) {
+          errorMessage = errorData.error;
+        }
+        
+        throw new Error(errorMessage);
       }
 
+      const result = await response.json();
+      
+      // Show detailed success message if available
+      let successMessage = "Your account and all data have been permanently deleted.";
+      if (result.deletedData) {
+        const { images, folders, sharedGalleries, settings } = result.deletedData;
+        const details = [];
+        if (images > 0) details.push(`${images} images`);
+        if (folders > 0) details.push(`${folders} folders`);
+        if (sharedGalleries > 0) details.push(`${sharedGalleries} shared galleries`);
+        if (settings) details.push('user settings');
+        
+        if (details.length > 0) {
+          successMessage = `Account deleted successfully. Removed: ${details.join(', ')}.`;
+        }
+      }
+      
       toast({
-        title: "Account Deleted",
-        description: "Your account and all data have been permanently deleted.",
+        title: "Account Deleted Successfully",
+        description: successMessage,
       });
 
-      // Sign out and redirect to homepage
-      await signOut({ callbackUrl: '/' });
+      // Wait a moment before signing out to let the user see the success message
+      setTimeout(async () => {
+        await signOut({ callbackUrl: '/auth/signin' });
+      }, 2000);
+      
     } catch (error) {
       console.error('Error deleting account:', error);
+      
+      let errorMessage = "There was an unexpected error deleting your account. Please try again.";
+      
+      // Handle network errors specifically
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        errorMessage = "Network error: Unable to connect to the server. Please check your internet connection and try again.";
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      
       toast({
-        title: "Deletion Failed",
-        description: "There was an error deleting your account. Please try again.",
+        title: "Account Deletion Failed",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {

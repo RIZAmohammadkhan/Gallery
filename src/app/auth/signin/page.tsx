@@ -44,31 +44,94 @@ export default function SignIn() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Client-side validation
+    if (!email.trim()) {
+      toast({
+        title: 'Email Required',
+        description: 'Please enter your email address.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
+    if (!password) {
+      toast({
+        title: 'Password Required',
+        description: 'Please enter your password.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
+    // Basic email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      toast({
+        title: 'Invalid Email Format',
+        description: 'Please enter a valid email address.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
     setIsLoading(true);
 
     try {
       const result = await signIn('credentials', {
         email: email.toLowerCase(),
         password,
-        callbackUrl: '/',
-        redirect: true,
+        redirect: false,
       });
       
-      // If we reach here, there was an error (redirect: true would have redirected on success)
       if (result?.error) {
+        let errorMessage = 'Something went wrong. Please try again.';
+        
+        switch (result.error) {
+          case 'MissingCredentials':
+            errorMessage = 'Please enter both email and password.';
+            break;
+          case 'UserNotFound':
+            errorMessage = 'No account found with this email address. Please check your email or sign up for a new account.';
+            break;
+          case 'InvalidPassword':
+            errorMessage = 'Incorrect password. Please check your password and try again.';
+            break;
+          case 'DatabaseError':
+            errorMessage = 'Database connection error. Please try again later.';
+            break;
+          case 'CredentialsSignin':
+            // This is NextAuth's generic error, try to be more specific
+            errorMessage = 'Invalid email or password. Please check your credentials and try again.';
+            break;
+          default:
+            errorMessage = 'Authentication failed. Please try again.';
+        }
+        
         toast({
-          title: 'Error',
-          description: 'Invalid email or password',
+          title: 'Sign In Failed',
+          description: errorMessage,
           variant: 'destructive',
         });
-        setIsLoading(false);
+      } else if (result?.ok) {
+        // Show success message
+        toast({
+          title: 'Welcome back!',
+          description: 'Successfully signed in to your account.',
+        });
+        
+        // Successfully signed in, redirect to home
+        router.push('/');
+        router.refresh();
       }
-    } catch (_error) {
+    } catch (error) {
+      console.error('Sign in error:', error);
       toast({
         title: 'Error',
-        description: 'Something went wrong. Please try again.',
+        description: 'An unexpected error occurred. Please try again.',
         variant: 'destructive',
       });
+    } finally {
       setIsLoading(false);
     }
   };

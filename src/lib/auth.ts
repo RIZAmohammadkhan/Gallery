@@ -14,7 +14,7 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
-          return null;
+          throw new Error('MissingCredentials');
         }
 
         try {
@@ -30,13 +30,13 @@ export const authOptions: NextAuthOptions = {
           });
           
           if (!user) {
-            return null;
+            throw new Error('UserNotFound');
           }
 
           const isValidPassword = await bcrypt.compare(credentials.password, user.password);
           
           if (!isValidPassword) {
-            return null;
+            throw new Error('InvalidPassword');
           }
 
           return {
@@ -46,8 +46,11 @@ export const authOptions: NextAuthOptions = {
             image: user.image,
           };
         } catch (error) {
+          if (error instanceof Error && ['MissingCredentials', 'UserNotFound', 'InvalidPassword'].includes(error.message)) {
+            throw error;
+          }
           console.error('Auth error:', error);
-          return null;
+          throw new Error('DatabaseError');
         }
       }
     })
