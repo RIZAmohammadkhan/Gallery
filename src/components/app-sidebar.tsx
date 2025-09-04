@@ -201,7 +201,7 @@ export default function AppSidebar({ folders, activeView, setActiveView, onCreat
         <Button asChild className="w-full h-11 rounded-xl shadow-sm hover:shadow-md transition-all duration-200 hover:scale-[1.02]">
           <label htmlFor="file-upload" className="cursor-pointer">
             <UploadCloud className="mr-2 h-4 w-4" />
-            Upload
+            Upload Images
             <input id="file-upload" type="file" className="sr-only" onChange={onFileUpload} accept="image/*" multiple />
           </label>
         </Button>

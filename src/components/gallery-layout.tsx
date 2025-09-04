@@ -5,6 +5,7 @@ import { SidebarProvider, Sidebar, SidebarInset, SidebarRail } from "@/component
 import { Folder, StoredImage } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from 'next/navigation';
+import { UploadCloud } from 'lucide-react';
 
 
 import { generateImageMetadata } from "@/ai/flows/generate-image-metadata-flow";
@@ -64,6 +65,55 @@ export default function GalleryLayout() {
 
   const { toast } = useToast();
   const _router = useRouter();
+
+  // File upload state for drag and drop
+  const [isDraggingFiles, setIsDraggingFiles] = useState(false);
+
+  // Drag and drop handlers for file upload
+  const handleFileDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer.types.includes('Files')) {
+      setIsDraggingFiles(true);
+    }
+  };
+
+  const handleFileDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // Only hide overlay if leaving the main container
+    if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+    setIsDraggingFiles(false);
+  };
+
+  const handleFileDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingFiles(false);
+
+    const files = Array.from(e.dataTransfer.files).filter(file => 
+      file.type.startsWith('image/')
+    );
+
+    if (files.length === 0) {
+      toast({
+        title: "Invalid Files",
+        description: "Please drop only image files.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Simulate file input event for existing handler
+    const mockEvent = {
+      target: { 
+        files: files,
+        value: ''
+      }
+    } as unknown as ChangeEvent<HTMLInputElement>;
+
+    await handleFileUpload(mockEvent);
+  };
 
   // Load data from database on mount
   useEffect(() => {
@@ -304,170 +354,210 @@ export default function GalleryLayout() {
   };
 
   const handleFileUpload = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
 
-    const tempImageId = `temp-${Date.now()}`;
-    setLoadingStates((prev) => ({ ...prev, [tempImageId]: "Uploading..." }));
+    // Convert FileList to Array for easier processing
+    const fileArray = Array.from(files);
     
-    let uploadedImageId: string | undefined;
-    
-    try {
-      // Upload file to server
-      const formData = new FormData();
-      formData.append('file', file);
-
-      const uploadResponse = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
+    // Show toast for bulk upload
+    if (fileArray.length > 1) {
+      toast({
+        title: "Bulk Upload Started",
+        description: `Uploading ${fileArray.length} images...`,
       });
+    }
 
-      if (!uploadResponse.ok) {
-        const error = await uploadResponse.json();
-        throw new Error(error.error || 'Upload failed');
-      }
-
-      const uploadedImage = await uploadResponse.json();
-      uploadedImageId = uploadedImage.id;
+    // Process each file
+    for (let i = 0; i < fileArray.length; i++) {
+      const file = fileArray[i];
+      const tempImageId = `temp-${Date.now()}-${i}`;
+      setLoadingStates((prev) => ({ ...prev, [tempImageId]: `Uploading ${i + 1}/${fileArray.length}...` }));
       
-      // Add the uploaded image to local state with server response data
-      const newImage: StoredImage = {
-        id: uploadedImage.id,
-        name: uploadedImage.name,
-        dataUri: uploadedImage.dataUri,
-        width: uploadedImage.width,
-        height: uploadedImage.height,
-        folderId: null,
-        metadata: '',
-        tags: [],
-        isDefective: false
-      };
-
-      setImages((prev) => [newImage, ...prev]);
-
-      // Now run AI analysis and update the image
-      setLoadingStates((prev) => ({ ...prev, [uploadedImage.id]: "Analyzing..." }));
+      let uploadedImageId: string | undefined;
       
-      // Convert file URL to data URI for AI processing
-      const imageDataUri = await convertFileUrlToDataUri(uploadedImage.dataUri);
-      
-      const [metadataRes, defectRes] = await Promise.all([
-        generateImageMetadata({ photoDataUri: imageDataUri }),
-        detectDefectiveImages({ photoDataUri: imageDataUri }),
-      ]);
-      
-      // Update image with AI analysis results
-      const imageUpdates = {
-        name: metadataRes.title,
-        metadata: metadataRes.metadata,
-        tags: metadataRes.tags,
-        isDefective: defectRes.isDefective,
-        defectType: defectRes.defectType,
-      };
+      try {
+        // Upload file to server
+        const formData = new FormData();
+        formData.append('file', file);
 
-      // Update in database
-      const updateResponse = await fetch('/api/images', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          imageId: uploadedImage.id,
-          ...imageUpdates
-        }),
-      });
+        const uploadResponse = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData,
+        });
 
-      if (updateResponse.ok) {
-        // Update local state
-        setImages((prev) =>
-          prev.map((img) =>
-            img.id === uploadedImage.id
-              ? { ...img, ...imageUpdates }
-              : img
-          )
-        );
+        if (!uploadResponse.ok) {
+          const error = await uploadResponse.json();
+          throw new Error(error.error || 'Upload failed');
+        }
 
-        // Automatic Categorization if not defective
-        if (!defectRes.isDefective && folders.length > 0) {
-          setLoadingStates((prev) => ({ ...prev, [uploadedImage.id]: "Categorizing..." }));
-          
-          const { category } = await categorizeImage({
-            photoDataUri: imageDataUri,
-            folders: folders.map(f => f.name),
-          });
-          
-          const targetFolder = folders.find(f => f.name === category);
-          if (targetFolder) {
-            // Update folder assignment in database
-            const folderUpdateResponse = await fetch('/api/images', {
-              method: 'PUT',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                imageId: uploadedImage.id,
-                folderId: targetFolder.id
-              }),
+        const uploadedImage = await uploadResponse.json();
+        uploadedImageId = uploadedImage.id;
+        
+        // Add the uploaded image to local state with server response data
+        const newImage: StoredImage = {
+          id: uploadedImage.id,
+          name: uploadedImage.name,
+          dataUri: uploadedImage.dataUri,
+          width: uploadedImage.width,
+          height: uploadedImage.height,
+          folderId: null,
+          metadata: '',
+          tags: [],
+          isDefective: false
+        };
+
+        setImages((prev) => [newImage, ...prev]);
+
+        // Now run AI analysis and update the image
+        setLoadingStates((prev) => ({ ...prev, [uploadedImage.id]: `Analyzing ${i + 1}/${fileArray.length}...` }));
+        
+        // Convert file URL to data URI for AI processing
+        const imageDataUri = await convertFileUrlToDataUri(uploadedImage.dataUri);
+        
+        const [metadataRes, defectRes] = await Promise.all([
+          generateImageMetadata({ photoDataUri: imageDataUri }),
+          detectDefectiveImages({ photoDataUri: imageDataUri }),
+        ]);
+        
+        // Update image with AI analysis results
+        const imageUpdates = {
+          name: metadataRes.title,
+          metadata: metadataRes.metadata,
+          tags: metadataRes.tags,
+          isDefective: defectRes.isDefective,
+          defectType: defectRes.defectType,
+        };
+
+        // Update in database
+        const updateResponse = await fetch('/api/images', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            imageId: uploadedImage.id,
+            ...imageUpdates
+          }),
+        });
+
+        if (updateResponse.ok) {
+          // Update local state
+          setImages((prev) =>
+            prev.map((img) =>
+              img.id === uploadedImage.id
+                ? { ...img, ...imageUpdates }
+                : img
+            )
+          );
+
+          // Automatic Categorization if not defective
+          if (!defectRes.isDefective && folders.length > 0) {
+            setLoadingStates((prev) => ({ ...prev, [uploadedImage.id]: `Categorizing ${i + 1}/${fileArray.length}...` }));
+            
+            const { category } = await categorizeImage({
+              photoDataUri: imageDataUri,
+              folders: folders.map(f => f.name),
             });
-
-            if (folderUpdateResponse.ok) {
-              setImages(prev => prev.map(img => 
-                img.id === uploadedImage.id ? { ...img, folderId: targetFolder.id } : img
-              ));
-              toast({
-                title: "Upload Successful",
-                description: `${file.name} uploaded and moved to "${category}".`,
+            
+            const targetFolder = folders.find(f => f.name === category);
+            if (targetFolder) {
+              // Update folder assignment in database
+              const folderUpdateResponse = await fetch('/api/images', {
+                method: 'PUT',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  imageId: uploadedImage.id,
+                  folderId: targetFolder.id
+                }),
               });
+
+              if (folderUpdateResponse.ok) {
+                setImages(prev => prev.map(img => 
+                  img.id === uploadedImage.id ? { ...img, folderId: targetFolder.id } : img
+                ));
+                
+                // Only show individual toast for single upload or last file in bulk
+                if (fileArray.length === 1 || i === fileArray.length - 1) {
+                  toast({
+                    title: fileArray.length === 1 ? "Upload Successful" : "Bulk Upload Complete",
+                    description: fileArray.length === 1 
+                      ? `${file.name} uploaded and moved to "${category}".`
+                      : `${fileArray.length} images uploaded successfully.`,
+                  });
+                }
+              } else {
+                if (fileArray.length === 1 || i === fileArray.length - 1) {
+                  toast({
+                    title: fileArray.length === 1 ? "Upload Successful" : "Bulk Upload Complete",
+                    description: fileArray.length === 1 
+                      ? `${file.name} uploaded but couldn't be categorized.`
+                      : `${fileArray.length} images uploaded successfully.`,
+                  });
+                }
+              }
             } else {
+              if (fileArray.length === 1 || i === fileArray.length - 1) {
+                toast({
+                  title: fileArray.length === 1 ? "Upload Successful" : "Bulk Upload Complete",
+                  description: fileArray.length === 1 
+                    ? `${file.name} uploaded but couldn't be categorized.`
+                    : `${fileArray.length} images uploaded successfully.`,
+                });
+              }
+            }
+          } else if (defectRes.isDefective) {
+            if (fileArray.length === 1 || i === fileArray.length - 1) {
               toast({
-                title: "Upload Successful",
-                description: `${file.name} uploaded but couldn't be categorized.`,
+                title: fileArray.length === 1 ? "Upload Successful" : "Bulk Upload Complete",
+                description: fileArray.length === 1 
+                  ? `${file.name} has been uploaded and moved to Bin.`
+                  : `${fileArray.length} images uploaded successfully.`,
               });
             }
           } else {
-            toast({
-              title: "Upload Successful",
-              description: `${file.name} uploaded but couldn't be categorized.`,
-            });
+            if (fileArray.length === 1 || i === fileArray.length - 1) {
+              toast({
+                title: fileArray.length === 1 ? "Upload Successful" : "Bulk Upload Complete",
+                description: fileArray.length === 1 
+                  ? `${file.name} has been uploaded and analyzed.`
+                  : `${fileArray.length} images uploaded successfully.`,
+              });
+            }
           }
-        } else if (defectRes.isDefective) {
-          toast({
-            title: "Upload Successful",
-            description: `${file.name} has been uploaded and moved to Bin.`,
-          });
         } else {
-          toast({
-            title: "Upload Successful",
-            description: `${file.name} has been uploaded and analyzed.`,
-          });
+          throw new Error('Failed to update image metadata');
         }
-      } else {
-        throw new Error('Failed to update image metadata');
-      }
 
-    } catch (error) {
-      console.error("Upload failed:", error);
-      toast({
-        title: "Upload Failed",
-        description: error instanceof Error ? error.message : "There was an error processing your image.",
-        variant: "destructive",
-      });
-      
-      // Remove the temporary image from state if it was added
-      setImages(prev => prev.filter(img => img.id !== tempImageId));
-    } finally {
-      setLoadingStates((prev) => {
-        const next = { ...prev };
-        delete next[tempImageId];
+      } catch (error) {
+        console.error(`Upload failed for ${file.name}:`, error);
+        toast({
+          title: "Upload Failed",
+          description: `${file.name}: ${error instanceof Error ? error.message : "Error processing image"}`,
+          variant: "destructive",
+        });
+        
+        // Remove the failed image from state if it was added
         if (uploadedImageId) {
-          delete next[uploadedImageId];
+          setImages(prev => prev.filter(img => img.id !== uploadedImageId));
         }
-        return next;
-      });
+      } finally {
+        setLoadingStates((prev) => {
+          const next = { ...prev };
+          delete next[tempImageId];
+          if (uploadedImageId) {
+            delete next[uploadedImageId];
+          }
+          return next;
+        });
+      }
     }
-  };
-  
-  const performSearch = useCallback(async (query: string) => {
+
+    // Reset file input
+    event.target.value = '';
+  };  const performSearch = useCallback(async (query: string) => {
     if (!query.trim()) {
         setSearchResults(null);
         return;
@@ -1085,7 +1175,23 @@ export default function GalleryLayout() {
             onOpenSettings={() => setIsSettingsOpen(true)}
             activeView={activeView}
           />
-          <main className="flex-1 overflow-y-auto p-4 md:p-6">
+          <main 
+            className="flex-1 overflow-y-auto p-4 md:p-6 relative"
+            onDragOver={handleFileDragOver}
+            onDragLeave={handleFileDragLeave}
+            onDrop={handleFileDrop}
+          >
+            {/* Drag overlay */}
+            {isDraggingFiles && (
+              <div className="absolute inset-0 bg-primary/10 border-2 border-dashed border-primary z-50 flex items-center justify-center backdrop-blur-sm">
+                <div className="text-center p-8 rounded-lg bg-background/80 shadow-lg">
+                  <UploadCloud className="h-16 w-16 text-primary mx-auto mb-4" />
+                  <h3 className="text-xl font-semibold mb-2">Drop Images Here</h3>
+                  <p className="text-muted-foreground">Drop your image files to upload them</p>
+                </div>
+              </div>
+            )}
+            
             <ImageGrid
               images={displayedImages}
               loadingStates={loadingStates}

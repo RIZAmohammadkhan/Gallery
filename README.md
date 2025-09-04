@@ -5,8 +5,7 @@
 [![Next.js](https://img.shields.io/badge/Next.js-15.5-black?logo=next.js)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?logo=typescript)](https://www.typescriptlang.org/)
 [![MongoDB](https://img.shields.io/badge/MongoDB-6.12-green?logo=mongodb)](https://www.mongodb.com/)
-[![Docker](https://img.shields.io/badge/Docker-Ready-blue?logo=docker)](https://www.docker.com/)
-[![Security](https://img.shields.io/badge/Security-Enterprise_Grade-red?logo=security)](./SECURITY.md)
+[![Security](https://img.shields.io/badge/Security-Enterprise_Grade-red?logo=security)](#security)
 
 ## ✨ Features
 
@@ -43,8 +42,7 @@
 - **Tailwind CSS** - Modern styling with customizable design system
 - **Loading States** - Smooth animations and feedback during operations
 
-### 🐳 **Enterprise-Ready Deployment**
-- **Docker Support** - Containerized deployment with security best practices
+### 🏢 **Enterprise-Ready Deployment**
 - **Multi-Stage Builds** - Optimized production images with minimal attack surface
 - **Health Monitoring** - Built-in health checks and status endpoints
 - **Environment Management** - Secure configuration with runtime secret injection
@@ -79,26 +77,6 @@
    ```
    http://localhost:9002
    ```
-
-### **Docker Deployment (Recommended)**
-
-1. **Setup secure environment:**
-   ```bash
-   cp .env.docker.example .env.docker
-   # Edit .env.docker with secure secrets
-   ```
-
-2. **Deploy with security validation:**
-   ```bash
-   ./docker-run.sh
-   ```
-
-3. **Access your application:**
-   ```
-   http://localhost:9002
-   ```
-
-📖 **[Complete Docker Guide](./DOCKER.md)** | 🔒 **[Security Documentation](./SECURITY.md)**
 
 ## 🛠️ Technology Stack
 
@@ -136,6 +114,8 @@ src/
 │   └── dev.ts            # AI development environment
 ├── app/                   # Next.js App Router
 │   ├── api/              # API endpoints
+│   ├── auth/             # Authentication pages
+│
 │   ├── auth/             # Authentication pages
 │   ├── share/            # Public sharing pages
 │   └── page.tsx          # Main gallery page
@@ -228,19 +208,9 @@ src/
    ```
 5. **Open a Pull Request**
 
-## 🔒 Security
-
-This application implements **enterprise-grade security practices**:
-
-- ✅ **Secure Docker containers** with non-root execution
-- ✅ **Runtime secret injection** (no secrets in images)
-- ✅ **Input validation** and sanitization
-- ✅ **Authentication** and authorization
-- ✅ **HTTPS support** for production deployments
-
-📖 **[Complete Security Guide](./SECURITY.md)**
-
 ## 📄 License
+
+This project is licensed under the MIT
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
@@ -252,12 +222,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Tailwind CSS** - Utility-first CSS framework
 - **MongoDB** - Document database platform
 
-## 📞 Support
-
-- **Documentation:** Check the `/docs` folder
-- **Issues:** Open a GitHub issue for bugs or feature requests
-- **Security:** See [SECURITY.md](./SECURITY.md) for security-related concerns
-
----
 
 **Built with ❤️ using Next.js, TypeScript, and AI**

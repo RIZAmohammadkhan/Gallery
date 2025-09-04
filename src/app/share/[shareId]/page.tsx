@@ -2,14 +2,19 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Image from 'next/image';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { GalleryHorizontal, Download, ExternalLink, Clock, Eye, AlertCircle } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { useToast } from '@/hooks/use-toast';
+import { BulkExportDialog } from '@/components/bulk-export-dialog';
+import { GalleryHorizontal, Download, ExternalLink, Clock, Eye, AlertCircle, MousePointer2, CheckSquare2, DownloadIcon, Info } from 'lucide-react';
 import type { SharedGallery } from '@/lib/sharing-client';
+import { exportImagesAsZip } from '@/lib/bulk-operations';
+import type { StoredImage } from '@/lib/types';
 
 export default function SharedGalleryPage() {
   const params = useParams();
@@ -17,6 +22,17 @@ export default function SharedGalleryPage() {
   const [gallery, setGallery] = useState<SharedGallery | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Selection mode state
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedImageIds, setSelectedImageIds] = useState<Set<string>>(new Set());
+  
+  // Export state
+  const [isBulkExportDialogOpen, setIsBulkExportDialogOpen] = useState(false);
+  const [exportProgress, setExportProgress] = useState(0);
+  const [isExportComplete, setIsExportComplete] = useState(false);
+  
+  const { toast } = useToast();
 
   useEffect(() => {
     if (shareId) {
@@ -65,6 +81,123 @@ export default function SharedGalleryPage() {
   const openOriginal = (dataUri: string) => {
     window.open(dataUri, '_blank');
   };
+
+  // Selection handlers
+  const handleImageSelection = (imageId: string) => {
+    setSelectedImageIds(prev => {
+      const newSelection = new Set(prev);
+      if (newSelection.has(imageId)) {
+        newSelection.delete(imageId);
+      } else {
+        newSelection.add(imageId);
+      }
+      return newSelection;
+    });
+  };
+
+  const handleSelectAll = () => {
+    if (gallery?.images) {
+      setSelectedImageIds(new Set(gallery.images.map(img => img.id)));
+    }
+  };
+
+  const handleUnselectAll = () => {
+    setSelectedImageIds(new Set());
+  };
+
+  const toggleSelectionMode = () => {
+    setSelectionMode(!selectionMode);
+    if (selectionMode) {
+      setSelectedImageIds(new Set());
+    }
+  };
+
+  // Bulk export handler
+  const handleBulkExport = useCallback(async () => {
+    if (selectedImageIds.size === 0 || !gallery) return;
+    
+    const selectedImages = gallery.images.filter(img => selectedImageIds.has(img.id));
+    
+    // Convert to StoredImage format for the export function
+    const storedImages: StoredImage[] = selectedImages.map(img => ({
+      id: img.id,
+      name: img.name,
+      dataUri: img.dataUri,
+      metadata: '',
+      tags: [],
+      isDefective: false,
+      folderId: null
+    }));
+    
+    setIsBulkExportDialogOpen(true);
+    setExportProgress(0);
+    setIsExportComplete(false);
+    
+    try {
+      await exportImagesAsZip(storedImages, (progress) => {
+        setExportProgress(progress);
+      });
+      
+      setIsExportComplete(true);
+      toast({ 
+        title: "Export Complete", 
+        description: `Successfully exported ${selectedImages.length} ${selectedImages.length === 1 ? 'image' : 'images'}.` 
+      });
+      
+      setSelectionMode(false);
+      setSelectedImageIds(new Set());
+    } catch (error) {
+      console.error('Export failed:', error);
+      toast({ 
+        title: "Export Failed", 
+        description: "There was an error exporting the images. Please try again.", 
+        variant: "destructive" 
+      });
+      setIsBulkExportDialogOpen(false);
+    }
+  }, [selectedImageIds, gallery, toast]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Ctrl/Cmd + A - Select all
+      if ((event.ctrlKey || event.metaKey) && event.key === 'a') {
+        event.preventDefault();
+        if (selectionMode) {
+          const allSelected = gallery?.images && selectedImageIds.size === gallery.images.length;
+          if (allSelected) {
+            handleUnselectAll();
+          } else {
+            handleSelectAll();
+          }
+        }
+        return;
+      }
+
+      // Only handle these shortcuts in selection mode
+      if (!selectionMode || selectedImageIds.size === 0) return;
+
+      // Ctrl/Cmd + E - Bulk export
+      if ((event.ctrlKey || event.metaKey) && event.key === 'e') {
+        event.preventDefault();
+        handleBulkExport();
+        return;
+      }
+
+      // Escape - Exit selection mode
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setSelectionMode(false);
+        setSelectedImageIds(new Set());
+        return;
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [selectionMode, selectedImageIds, gallery, handleBulkExport]);
 
   if (loading) {
     return (
@@ -117,6 +250,57 @@ export default function SharedGalleryPage() {
             {gallery.title}
           </h1>
         </div>
+        
+        {/* Selection Controls */}
+        {gallery && gallery.images.length > 0 && (
+          <div className="flex items-center gap-2">
+            {selectionMode && (
+              <>
+                <span className="text-sm text-muted-foreground">
+                  {selectedImageIds.size} selected
+                </span>
+                {selectedImageIds.size > 0 && (
+                  <Button
+                    size="sm"
+                    onClick={handleBulkExport}
+                    className="gap-2"
+                  >
+                    <DownloadIcon className="h-4 w-4" />
+                    Export ({selectedImageIds.size})
+                  </Button>
+                )}
+                {gallery.images.length > 0 && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={selectedImageIds.size === gallery.images.length ? handleUnselectAll : handleSelectAll}
+                  >
+                    {selectedImageIds.size === gallery.images.length ? 'Unselect All' : 'Select All'}
+                  </Button>
+                )}
+              </>
+            )}
+            <Button
+              size="sm"
+              variant={selectionMode ? "default" : "outline"}
+              onClick={toggleSelectionMode}
+              className="gap-2"
+            >
+              {selectionMode ? (
+                <>
+                  <MousePointer2 className="h-4 w-4" />
+                  Exit Selection
+                </>
+              ) : (
+                <>
+                  <CheckSquare2 className="h-4 w-4" />
+                  Select
+                </>
+              )}
+            </Button>
+          </div>
+        )}
+        
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Eye className="h-4 w-4" />
           <span>{gallery.accessCount} view{gallery.accessCount !== 1 ? 's' : ''}</span>
@@ -153,36 +337,63 @@ export default function SharedGalleryPage() {
         <div className="columns-2 md:columns-3 lg:columns-4 xl:columns-5 gap-4">
           {gallery.images.map((image, _index) => (
             <div key={image.id} className="break-inside-avoid mb-4">
-              <Card className="overflow-hidden group">
+              <Card 
+                className={`overflow-hidden group cursor-pointer transition-all duration-200 ${
+                  selectionMode && selectedImageIds.has(image.id) 
+                    ? 'ring-2 ring-primary ring-offset-2 scale-[0.98]' 
+                    : selectionMode 
+                      ? 'hover:ring-2 hover:ring-muted-foreground/50 hover:ring-offset-1' 
+                      : ''
+                }`}
+                onClick={() => selectionMode && handleImageSelection(image.id)}
+              >
                 <CardContent className="p-0 relative">
+                  {/* Selection checkbox */}
+                  {selectionMode && (
+                    <div className="absolute top-2 left-2 z-10">
+                      <Checkbox
+                        checked={selectedImageIds.has(image.id)}
+                        onCheckedChange={() => handleImageSelection(image.id)}
+                        className="bg-white/90 border-white/90"
+                      />
+                    </div>
+                  )}
+                  
                   <Image
                     src={image.dataUri}
                     alt={image.name}
                     width={500}
                     height={500}
-                    className="w-full h-auto object-cover"
+                    className={`w-full h-auto object-cover transition-all duration-200 ${
+                      selectionMode && selectedImageIds.has(image.id) 
+                        ? 'brightness-75' 
+                        : ''
+                    }`}
                   />
-                  {/* Overlay with actions */}
-                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-200 flex items-center justify-center opacity-0 group-hover:opacity-100">
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => openOriginal(image.dataUri)}
-                        className="bg-white/90 hover:bg-white text-black"
-                      >
-                        <ExternalLink className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => downloadImage(image.dataUri, image.name)}
-                        className="bg-white/90 hover:bg-white text-black"
-                      >
-                        <Download className="h-4 w-4" />
-                      </Button>
+                  
+                  {/* Overlay with actions - only show when not in selection mode */}
+                  {!selectionMode && (
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-200 flex items-center justify-center opacity-0 group-hover:opacity-100">
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => openOriginal(image.dataUri)}
+                          className="bg-white/90 hover:bg-white text-black"
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => downloadImage(image.dataUri, image.name)}
+                          className="bg-white/90 hover:bg-white text-black"
+                        >
+                          <Download className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </CardContent>
                 <div className="p-3">
                   <p className="text-sm font-medium truncate">{image.name}</p>
@@ -200,6 +411,15 @@ export default function SharedGalleryPage() {
           </div>
         )}
       </main>
+      
+      {/* Bulk Export Dialog */}
+      <BulkExportDialog
+        isOpen={isBulkExportDialogOpen}
+        onOpenChange={setIsBulkExportDialogOpen}
+        progress={exportProgress}
+        isComplete={isExportComplete}
+        imageCount={selectedImageIds.size}
+      />
     </div>
   );
 }
