@@ -98,7 +98,7 @@
    http://localhost:9002
    ```
 
-📖 **[Complete Docker Guide](./DOCKER.md)** | 🔒 **[Security Documentation](./SECURITY.md)**
+📖 **[Complete Docker Guide](./DOCKER.md)** 
 
 ## 🛠️ Technology Stack
 
@@ -238,7 +238,6 @@ This application implements **enterprise-grade security practices**:
 - ✅ **Authentication** and authorization
 - ✅ **HTTPS support** for production deployments
 
-📖 **[Complete Security Guide](./SECURITY.md)**
 
 ## 📄 License
 
@@ -251,12 +250,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Radix UI** - Accessible component library
 - **Tailwind CSS** - Utility-first CSS framework
 - **MongoDB** - Document database platform
-
-## 📞 Support
-
-- **Documentation:** Check the `/docs` folder
-- **Issues:** Open a GitHub issue for bugs or feature requests
-- **Security:** See [SECURITY.md](./SECURITY.md) for security-related concerns
 
 ---
 
