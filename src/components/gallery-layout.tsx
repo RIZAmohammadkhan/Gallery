@@ -1216,6 +1216,8 @@ export default function GalleryLayout() {
           onDeleteImage={handleDeleteImage}
           onEditImage={handleEditImage}
           loadingState={loadingStates[selectedImage.id]}
+          allImages={displayedImages}
+          onNavigateToImage={setSelectedImageId}
         />
       )}
       <ShareDialog
@@ -1224,7 +1226,11 @@ export default function GalleryLayout() {
         selectedImages={images.filter(img => selectedImageIds.has(img.id)).map(img => ({
           id: img.id,
           dataUri: img.dataUri,
-          name: img.name
+          name: img.name,
+          metadata: img.metadata,
+          tags: img.tags,
+          isDefective: img.isDefective,
+          defectType: img.defectType
         }))}
         selectedImageCount={selectedImageIds.size}
       />

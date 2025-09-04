@@ -9,7 +9,15 @@ export { generateShareId };
 export async function createSharedGallery(
   userId: string,
   title: string,
-  images: Array<{ id: string; name: string; dataUri: string }>,
+  images: Array<{ 
+    id: string; 
+    name: string; 
+    dataUri: string; 
+    metadata?: string;
+    tags?: string[];
+    isDefective?: boolean;
+    defectType?: string;
+  }>,
   expirationDays?: number
 ): Promise<string | null> {
   // This function should only be called from server-side (API routes)

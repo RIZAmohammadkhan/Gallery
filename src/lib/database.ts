@@ -67,6 +67,7 @@ export class DatabaseService {
     try {
       const client = await clientPromise;
       const images = client.db().collection('images');
+      const galleries = client.db().collection('shared_galleries');
       
       // Get the image to find its storageId
       const image = await images.findOne({ userId: new ObjectId(userId), id: imageId });
@@ -75,11 +76,26 @@ export class DatabaseService {
       // Delete the image record
       const result = await images.deleteOne({ userId: new ObjectId(userId), id: imageId });
       
-      // Clean up storage if no other images reference it
-      if (result.deletedCount > 0 && image.storageId) {
-        const otherReferences = await images.countDocuments({ storageId: image.storageId });
-        if (otherReferences === 0) {
-          await SecureImageStorage.deleteImage(image.storageId);
+      if (result.deletedCount > 0) {
+        // Remove the image from any shared galleries that contain it
+        await galleries.updateMany(
+          { 
+            userId: new ObjectId(userId),
+            'imageData.id': imageId 
+          },
+          { 
+            $pull: { 
+              'imageData': { id: imageId } 
+            } 
+          } as any
+        );
+
+        // Clean up storage if no other images reference it
+        if (image.storageId) {
+          const otherReferences = await images.countDocuments({ storageId: image.storageId });
+          if (otherReferences === 0) {
+            await SecureImageStorage.deleteImage(image.storageId);
+          }
         }
       }
       
@@ -172,10 +188,19 @@ export class DatabaseService {
   static async getSharedGallery(shareId: string): Promise<{
     id: string;
     title: string;
-    images: Array<{ id: string; name: string; dataUri: string }>;
+    images: Array<{ 
+      id: string; 
+      name: string; 
+      dataUri: string; 
+      metadata?: string;
+      tags?: string[];
+      isDefective?: boolean;
+      defectType?: string;
+    }>;
     createdAt: Date;
     expiresAt?: Date;
     accessCount: number;
+    ownerId: string;
   } | null> {
     try {
       const client = await clientPromise;
@@ -208,6 +233,7 @@ export class DatabaseService {
         createdAt: gallery.createdAt,
         expiresAt: gallery.expiresAt,
         accessCount: gallery.accessCount + 1,
+        ownerId: gallery.userId.toString(),
       };
     } catch (error) {
       console.error('Error fetching shared gallery:', error);
@@ -231,13 +257,82 @@ export class DatabaseService {
     }
   }
 
+  static async addImagesToSharedGallery(userId: string, shareId: string, images: Array<{
+    id: string;
+    name: string;
+    dataUri: string;
+    metadata?: string;
+    tags?: string[];
+    isDefective?: boolean;
+    defectType?: string;
+  }>): Promise<boolean> {
+    try {
+      const client = await clientPromise;
+      const galleries = client.db().collection('shared_galleries');
+      
+      // Verify the gallery exists and belongs to the user
+      const gallery = await galleries.findOne({ 
+        userId: new ObjectId(userId), 
+        id: shareId 
+      });
+      
+      if (!gallery) return false;
+
+      // Prepare image data for adding (filter out duplicates)
+      const existingImageIds = new Set(gallery.imageIds || []);
+      const newImages = images.filter(img => !existingImageIds.has(img.id));
+      
+      if (newImages.length === 0) {
+        return true; // No new images to add, but operation is successful
+      }
+
+      // Add new images to both imageIds and imageData arrays
+      const newImageIds = newImages.map(img => img.id);
+      const newImageData = newImages.map(img => ({
+        id: img.id,
+        name: img.name,
+        dataUri: img.dataUri,
+        metadata: img.metadata,
+        tags: img.tags,
+        isDefective: img.isDefective,
+        defectType: img.defectType
+      }));
+
+      const result = await galleries.updateOne(
+        { userId: new ObjectId(userId), id: shareId },
+        {
+          $addToSet: {
+            imageIds: { $each: newImageIds }
+          },
+          $push: {
+            imageData: { $each: newImageData }
+          }
+        } as any
+      );
+
+      return result.modifiedCount > 0;
+    } catch (error) {
+      console.error('Error adding images to shared gallery:', error);
+      return false;
+    }
+  }
+
   static async getUserSharedGalleries(userId: string): Promise<Array<{
     id: string;
     title: string;
-    images: Array<{ id: string; name: string; dataUri: string }>;
+    images: Array<{ 
+      id: string; 
+      name: string; 
+      dataUri: string; 
+      metadata?: string;
+      tags?: string[];
+      isDefective?: boolean;
+      defectType?: string;
+    }>;
     createdAt: Date;
     expiresAt?: Date;
     accessCount: number;
+    ownerId: string;
   }>> {
     try {
       const client = await clientPromise;
@@ -269,6 +364,7 @@ export class DatabaseService {
           createdAt: gallery.createdAt,
           expiresAt: gallery.expiresAt,
           accessCount: gallery.accessCount,
+          ownerId: gallery.userId.toString(),
         });
       }
       

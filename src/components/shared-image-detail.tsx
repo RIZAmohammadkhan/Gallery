@@ -11,46 +11,50 @@ import {
   DialogFooter,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Sparkles, FolderSync, Trash2, RotateCcw, Download, ChevronLeft, ChevronRight } from "lucide-react";
-import type { StoredImage, Folder } from "@/lib/types";
+import { Loader2, Sparkles, Trash2, Download, ChevronLeft, ChevronRight, Edit3, ExternalLink } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 
-interface ImageDetailProps {
-  image: StoredImage;
-  folders: Folder[];
+interface SharedImageDetailProps {
+  image: {
+    id: string;
+    name: string;
+    dataUri: string;
+    metadata?: string;
+    tags?: string[];
+    isDefective?: boolean;
+    defectType?: string;
+  };
   onOpenChange: (open: boolean) => void;
-  onCategorize: (imageId: string) => void;
-  onUpdateImage: (imageId: string, updates: Partial<StoredImage>) => void;
-  onDeleteImage: (imageId: string) => void;
-  onEditImage: (imageId: string, prompt: string) => Promise<void>;
-  loadingState: string | boolean | undefined;
-  allImages?: StoredImage[];
+  onDeleteImage?: (imageId: string) => void;
+  onEditImage?: (imageId: string, prompt: string) => Promise<void>;
+  loadingState?: string | boolean;
+  allImages?: Array<{
+    id: string;
+    name: string;
+    dataUri: string;
+    metadata?: string;
+    tags?: string[];
+    isDefective?: boolean;
+    defectType?: string;
+  }>;
   onNavigateToImage?: (imageId: string) => void;
+  isOwner?: boolean;
 }
 
-export default function ImageDetail({
+export default function SharedImageDetail({
   image,
-  folders,
   onOpenChange,
-  onCategorize,
-  onUpdateImage,
   onDeleteImage,
   onEditImage,
   loadingState,
   allImages,
-  onNavigateToImage
-}: ImageDetailProps) {
+  onNavigateToImage,
+  isOwner = false
+}: SharedImageDetailProps) {
   const [editPrompt, setEditPrompt] = useState('');
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const isMobile = useIsMobile();
@@ -95,7 +99,7 @@ export default function ImageDetail({
   }, [canNavigate, currentIndex, allImages, onNavigateToImage, onOpenChange]);
 
   const handleEdit = async () => {
-    if (!editPrompt.trim()) return;
+    if (!editPrompt.trim() || !onEditImage) return;
     await onEditImage(image.id, editPrompt);
     setIsEditDialogOpen(false);
     setEditPrompt('');
@@ -110,6 +114,9 @@ export default function ImageDetail({
     document.body.removeChild(link);
   };
 
+  const handleOpenOriginal = () => {
+    window.open(image.dataUri, '_blank');
+  };
 
   const isLoading = !!loadingState;
 
@@ -175,9 +182,13 @@ export default function ImageDetail({
                   {currentIndex + 1} of {allImages.length}
                 </div>
               )}
-              <div>{image.metadata}</div>
+              {image.metadata && (
+                <div className="text-sm text-muted-foreground">{image.metadata}</div>
+              )}
             </DialogDescription>
-             {image.isDefective && <Badge variant="destructive" className="w-fit my-2">{image.defectType}</Badge>}
+             {image.isDefective && image.defectType && (
+               <Badge variant="destructive" className="w-fit my-2">{image.defectType}</Badge>
+             )}
           </DialogHeader>
           
           {image.tags && image.tags.length > 0 && (
@@ -191,37 +202,29 @@ export default function ImageDetail({
 
           <div className="mt-auto space-y-4 pt-4">
              <TooltipProvider>
-             {!image.isDefective ? (
-              <>
-                <div className={`flex gap-2 ${isMobile ? 'flex-col' : ''}`}>
-                  <Select onValueChange={(folderId) => onUpdateImage(image.id, { folderId })} value={image.folderId ?? ""}>
-                      <SelectTrigger disabled={isLoading} className="flex-grow">
-                        <SelectValue placeholder="Move to folder..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {folders.map(folder => (
-                          <SelectItem key={folder.id} value={folder.id}>{folder.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                  </Select>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button 
-                        variant="outline" 
-                        size={isMobile ? "default" : "icon"} 
-                        onClick={() => onCategorize(image.id)} 
-                        disabled={isLoading}
-                        className={isMobile ? "w-full" : ""}
-                      >
-                          <FolderSync className="h-4 w-4" />
-                          {isMobile && <span className="ml-2">Categorize with AI</span>}
-                          {!isMobile && <span className="sr-only">Categorize with AI</span>}
+              <div className={`flex gap-2 ${isMobile ? 'flex-col' : ''}`}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                      <Button variant="outline" className="w-full" onClick={handleDownload} disabled={isLoading}>
+                          <Download className="h-4 w-4 mr-2" />
+                          Download
                       </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Categorize with AI</TooltipContent>
-                  </Tooltip>
-                </div>
+                  </TooltipTrigger>
+                  <TooltipContent>Download Image</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                      <Button variant="outline" className="w-full" onClick={handleOpenOriginal} disabled={isLoading}>
+                          <ExternalLink className="h-4 w-4 mr-2" />
+                          Open
+                      </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Open in New Tab</TooltipContent>
+                </Tooltip>
+              </div>
 
+              {/* Owner-only actions */}
+              {isOwner && onEditImage && (
                 <div className={`flex gap-2 ${isMobile ? 'flex-col' : ''}`}>
                     <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
                       <Tooltip>
@@ -255,61 +258,11 @@ export default function ImageDetail({
                           </DialogFooter>
                       </DialogContent>
                     </Dialog>
-                    {!isMobile && (
-                      <>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                              <Button variant="outline" size="icon" onClick={handleDownload} disabled={isLoading}>
-                                  <Download className="h-4 w-4" />
-                              </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>Download</TooltipContent>
-                        </Tooltip>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                              <Button variant="destructive-outline" size="icon" onClick={() => onUpdateImage(image.id, { isDefective: true, defectType: 'Manual' })} disabled={isLoading}>
-                                  <Trash2 className="h-4 w-4" />
-                              </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>Move to Bin</TooltipContent>
-                        </Tooltip>
-                      </>
-                    )}
                 </div>
-                {isMobile && (
-                  <div className="flex gap-2">
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                          <Button variant="outline" className="w-full" onClick={handleDownload} disabled={isLoading}>
-                              <Download className="h-4 w-4 mr-2" />
-                              Download
-                          </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Download</TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                          <Button variant="destructive" className="w-full" onClick={() => onUpdateImage(image.id, { isDefective: true, defectType: 'Manual' })} disabled={isLoading}>
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Move to Bin
-                          </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Move to Bin</TooltipContent>
-                    </Tooltip>
-                  </div>
-                )}
-              </>
-            ) : (
-               <div className="flex gap-2 w-full">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button variant="outline" className="w-full" onClick={() => onUpdateImage(image.id, { isDefective: false })} disabled={isLoading}>
-                          <RotateCcw className="h-4 w-4 mr-2" />
-                          Restore
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Restore</TooltipContent>
-                  </Tooltip>
+              )}
+
+              {isOwner && onDeleteImage && (
+                <div className="flex gap-2 w-full">
                    <Tooltip>
                       <TooltipTrigger asChild>
                           <Button variant="destructive" className="w-full" onClick={() => onDeleteImage(image.id)} disabled={isLoading}>
@@ -317,10 +270,10 @@ export default function ImageDetail({
                               Delete
                           </Button>
                       </TooltipTrigger>
-                      <TooltipContent>Delete Permanently</TooltipContent>
+                      <TooltipContent>Delete Image</TooltipContent>
                     </Tooltip>
-              </div>
-            )}
+                </div>
+              )}
             </TooltipProvider>
           </div>
         </div>

@@ -23,7 +23,15 @@ import { useIsMobile } from '@/hooks/use-mobile';
 interface ShareDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
-  selectedImages: Array<{ id: string; name: string; dataUri: string; }>;
+  selectedImages: Array<{ 
+    id: string; 
+    name: string; 
+    dataUri: string; 
+    metadata?: string;
+    tags?: string[];
+    isDefective?: boolean;
+    defectType?: string;
+  }>;
   selectedImageCount: number;
 }
 

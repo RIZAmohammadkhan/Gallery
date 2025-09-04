@@ -14,16 +14,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { getShareUrl, copyToClipboard, type SharedGallery } from '@/lib/sharing-client';
-import { Share2, Copy, ExternalLink, Trash2, Clock, Eye, RefreshCw, MoreVertical } from 'lucide-react';
+import { Share2, Copy, ExternalLink, Trash2, Clock, Eye, RefreshCw, Plus } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { AddImagesToGalleryDialog } from './add-images-to-gallery-dialog';
 
 interface SharedGalleriesManagerProps {
   isOpen: boolean;
@@ -33,6 +27,7 @@ interface SharedGalleriesManagerProps {
 export function SharedGalleriesManager({ isOpen, onOpenChange }: SharedGalleriesManagerProps) {
   const [galleries, setGalleries] = useState<SharedGallery[]>([]);
   const [deleteGalleryId, setDeleteGalleryId] = useState<string | null>(null);
+  const [addImagesGalleryId, setAddImagesGalleryId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
   const isMobile = useIsMobile();
@@ -238,7 +233,11 @@ export function SharedGalleriesManager({ isOpen, onOpenChange }: SharedGalleries
               </div>
             ) : (
               galleries.map((gallery) => (
-                <Card key={gallery.id} className={`${isExpired(gallery) ? 'opacity-60' : ''} ${isMobile ? 'shadow-sm border-border/50' : ''}`}>
+                <Card 
+                  key={gallery.id} 
+                  className={`${isExpired(gallery) ? 'opacity-60' : ''} ${isMobile ? 'shadow-sm border-border/50' : ''} cursor-pointer hover:shadow-md transition-shadow`}
+                  onClick={() => openInNewTab(gallery.id)}
+                >
                   <CardHeader className={`${isMobile ? "p-3 pb-2" : "pb-2 sm:pb-3"}`}>
                     <div className="flex justify-between items-start gap-3">
                       <div className="flex-1 min-w-0">
@@ -272,32 +271,57 @@ export function SharedGalleriesManager({ isOpen, onOpenChange }: SharedGalleries
                         </div>
                       </div>
                       
-                      {/* Mobile Actions - Dropdown */}
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0 self-start">
-                            <MoreVertical className="h-3.5 w-3.5" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-48">
-                          <DropdownMenuItem onClick={() => handleCopyUrl(gallery.id)} className="gap-2 text-xs">
-                            <Copy className="h-3.5 w-3.5" />
-                            Copy Share Link
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => openInNewTab(gallery.id)} className="gap-2 text-xs">
-                            <ExternalLink className="h-3.5 w-3.5" />
-                            View Gallery
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem 
-                            onClick={() => setDeleteGalleryId(gallery.id)}
-                            className="text-destructive focus:text-destructive gap-2 text-xs"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                            Delete Gallery
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                      {/* Direct Action Icons */}
+                      <div className="flex items-center gap-1">
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-8 w-8 p-0" 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setAddImagesGalleryId(gallery.id);
+                          }}
+                          title="Add More Images"
+                        >
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-8 w-8 p-0" 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleCopyUrl(gallery.id);
+                          }}
+                          title="Copy Share Link"
+                        >
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-8 w-8 p-0" 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openInNewTab(gallery.id);
+                          }}
+                          title="View Gallery"
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-8 w-8 p-0 text-destructive hover:text-destructive" 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDeleteGalleryId(gallery.id);
+                          }}
+                          title="Delete Gallery"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                   </CardHeader>
                   <CardContent className={`pt-0 ${isMobile ? "p-3 pt-0" : ""}`}>
@@ -365,6 +389,17 @@ export function SharedGalleriesManager({ isOpen, onOpenChange }: SharedGalleries
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Add Images Dialog */}
+      {addImagesGalleryId && (
+        <AddImagesToGalleryDialog
+          isOpen={addImagesGalleryId !== null}
+          onOpenChange={() => setAddImagesGalleryId(null)}
+          galleryId={addImagesGalleryId}
+          galleryTitle={galleries.find(g => g.id === addImagesGalleryId)?.title || "Gallery"}
+          onImagesAdded={loadGalleries}
+        />
+      )}
     </>
   );
 }

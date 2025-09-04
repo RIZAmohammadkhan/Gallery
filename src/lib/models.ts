@@ -50,6 +50,10 @@ export interface DbSharedGallery {
     id: string;
     name: string;
     dataUri: string;
+    metadata?: string;
+    tags?: string[];
+    isDefective?: boolean;
+    defectType?: string;
   }>;
   createdAt: Date;
   expiresAt?: Date;

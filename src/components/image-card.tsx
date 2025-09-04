@@ -64,14 +64,6 @@ export default function ImageCard({ image, loadingState, onClick, selectionMode,
           )}
         </CardContent>
       </Card>
-       {selectionMode && !loadingState && (
-        <div className={cn(
-            "absolute top-1 left-1 sm:top-2 sm:left-2 h-5 w-5 sm:h-6 sm:w-6 rounded-full border-2 border-white bg-background/50 flex items-center justify-center transition-all",
-            isSelected && "bg-primary border-primary"
-        )}>
-           {isSelected && <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5 text-white" />}
-        </div>
-      )}
     </div>
   );
 }

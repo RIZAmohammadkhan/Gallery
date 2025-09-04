@@ -3,16 +3,21 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import Image from 'next/image';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Checkbox } from '@/components/ui/checkbox';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { BulkExportDialog } from '@/components/bulk-export-dialog';
-import { GalleryHorizontal, Download, ExternalLink, Clock, Eye, AlertCircle, MousePointer2, CheckSquare2, DownloadIcon, Info, MoreVertical } from 'lucide-react';
+import { BulkDeleteDialog } from '@/components/bulk-delete-dialog';
+import { AddImagesToGalleryDialog } from '@/components/add-images-to-gallery-dialog';
+import SharedImageDetail from '@/components/shared-image-detail';
+import { cn } from '@/lib/utils';
+import { GalleryHorizontal, Download, ExternalLink, Clock, Eye, AlertCircle, MousePointer2, CheckSquare2, DownloadIcon, MoreVertical, ChevronLeft, ChevronRight, X, Trash2, Edit3, CheckCircle2, Plus, ArrowLeft } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,57 +30,66 @@ import type { StoredImage } from '@/lib/types';
 
 export default function SharedGalleryPage() {
   const params = useParams();
+  const router = useRouter();
   const shareId = params?.shareId as string;
+  const { data: session } = useSession();
   const [gallery, setGallery] = useState<SharedGallery | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Gallery preview state
+  const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
+  const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
   
   // Selection mode state
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedImageIds, setSelectedImageIds] = useState<Set<string>>(new Set());
   
-  // Export state
+  // Export and delete state
   const [isBulkExportDialogOpen, setIsBulkExportDialogOpen] = useState(false);
+  const [isBulkDeleteDialogOpen, setIsBulkDeleteDialogOpen] = useState(false);
+  const [isAddImagesDialogOpen, setIsAddImagesDialogOpen] = useState(false);
   const [exportProgress, setExportProgress] = useState(0);
   const [isExportComplete, setIsExportComplete] = useState(false);
   
   const { toast } = useToast();
   const isMobile = useIsMobile();
 
-  useEffect(() => {
-    if (shareId) {
-      const loadGallery = async () => {
-        try {
-          const response = await fetch(`/api/share/${shareId}`);
-          if (response.ok) {
-            const sharedGallery = await response.json();
-            
-            // Convert date strings to Date objects
-            if (sharedGallery.createdAt) {
-              sharedGallery.createdAt = new Date(sharedGallery.createdAt);
-            }
-            if (sharedGallery.expiresAt) {
-              sharedGallery.expiresAt = new Date(sharedGallery.expiresAt);
-            }
-            
-            setGallery(sharedGallery);
-          } else {
-            setError("Gallery not found or has expired");
-          }
-        } catch (err) {
-          setError("Failed to load gallery");
-          console.error("Error loading shared gallery:", err);
-        } finally {
-          setLoading(false);
-        }
-      };
-      
-      loadGallery();
-    } else {
+  const loadGallery = useCallback(async () => {
+    if (!shareId) {
       setError("Invalid share link");
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/share/${shareId}`);
+      if (response.ok) {
+        const sharedGallery = await response.json();
+        
+        // Convert date strings to Date objects
+        if (sharedGallery.createdAt) {
+          sharedGallery.createdAt = new Date(sharedGallery.createdAt);
+        }
+        if (sharedGallery.expiresAt) {
+          sharedGallery.expiresAt = new Date(sharedGallery.expiresAt);
+        }
+        
+        setGallery(sharedGallery);
+      } else {
+        setError("Gallery not found or has expired");
+      }
+    } catch (err) {
+      setError("Failed to load gallery");
+      console.error("Error loading shared gallery:", err);
+    } finally {
       setLoading(false);
     }
   }, [shareId]);
+
+  useEffect(() => {
+    loadGallery();
+  }, [loadGallery]);
 
   const downloadImage = (dataUri: string, name: string) => {
     const link = document.createElement('a');
@@ -88,6 +102,16 @@ export default function SharedGalleryPage() {
 
   const openOriginal = (dataUri: string) => {
     window.open(dataUri, '_blank');
+  };
+
+  const handleBackButton = () => {
+    if (session) {
+      // User is logged in, go to main gallery
+      router.push('/');
+    } else {
+      // User is not logged in, go to login page
+      router.push('/auth/signin');
+    }
   };
 
   // Selection handlers
@@ -118,6 +142,31 @@ export default function SharedGalleryPage() {
     if (selectionMode) {
       setSelectedImageIds(new Set());
     }
+  };
+
+  // Gallery navigation handlers
+  const handleImageClick = (imageId: string, index: number) => {
+    if (selectionMode) {
+      handleImageSelection(imageId);
+    } else {
+      setSelectedImageId(imageId);
+      setSelectedImageIndex(index);
+    }
+  };
+
+  const handleNavigateToImage = (imageId: string) => {
+    if (gallery?.images) {
+      const index = gallery.images.findIndex(img => img.id === imageId);
+      if (index !== -1) {
+        setSelectedImageId(imageId);
+        setSelectedImageIndex(index);
+      }
+    }
+  };
+
+  const handleCloseDetailView = () => {
+    setSelectedImageId(null);
+    setSelectedImageIndex(null);
   };
 
   // Bulk export handler
@@ -165,9 +214,108 @@ export default function SharedGalleryPage() {
     }
   }, [selectedImageIds, gallery, toast]);
 
+  // Bulk delete handler (owner only)
+  const handleBulkDelete = useCallback(async () => {
+    if (selectedImageIds.size === 0 || !gallery || !gallery.isOwner) return;
+    
+    setIsBulkDeleteDialogOpen(true);
+  }, [selectedImageIds, gallery]);
+
+  const confirmBulkDelete = useCallback(async () => {
+    if (!gallery || !gallery.isOwner || selectedImageIds.size === 0) return;
+
+    try {
+      const idsToDelete = Array.from(selectedImageIds);
+      const response = await fetch(`/api/images/bulk-delete`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageIds: idsToDelete })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        
+        // Update the gallery by removing deleted images
+        const updatedGallery = {
+          ...gallery,
+          images: gallery.images.filter(img => !selectedImageIds.has(img.id))
+        };
+        setGallery(updatedGallery);
+        setSelectedImageIds(new Set());
+        setSelectionMode(false);
+        setIsBulkDeleteDialogOpen(false);
+        
+        toast({
+          title: "Images Deleted",
+          description: result.message || `Successfully deleted ${idsToDelete.length} image(s) from your gallery.`
+        });
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Delete failed');
+      }
+    } catch (error) {
+      console.error('Bulk delete failed:', error);
+      toast({
+        title: "Delete Failed",
+        description: "There was an error deleting the images. Please try again.",
+        variant: "destructive"
+      });
+    }
+  }, [gallery, selectedImageIds, toast]);
+
+  // Individual image delete handler (owner only)
+  const handleIndividualDelete = useCallback(async (imageId: string, imageName: string) => {
+    if (!gallery || !gallery.isOwner) return;
+
+    try {
+      const response = await fetch(`/api/images/bulk-delete`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageIds: [imageId] })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        
+        // Update the gallery by removing the deleted image
+        const updatedGallery = {
+          ...gallery,
+          images: gallery.images.filter(img => img.id !== imageId)
+        };
+        setGallery(updatedGallery);
+        
+        // Close detail view if the deleted image was currently being viewed
+        if (selectedImageId === imageId) {
+          handleCloseDetailView();
+        }
+        
+        toast({
+          title: "Image Deleted",
+          description: `Successfully deleted "${imageName}" from your gallery.`
+        });
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Delete failed');
+      }
+    } catch (error) {
+      console.error('Individual delete failed:', error);
+      toast({
+        title: "Delete Failed",
+        description: "There was an error deleting the image. Please try again.",
+        variant: "destructive"
+      });
+    }
+  }, [gallery, toast]);
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      // Gallery navigation shortcuts - handled by SharedImageDetail component
+      if (selectedImageId !== null) {
+        // Let SharedImageDetail handle navigation
+        return;
+      }
+
       // Ctrl/Cmd + A - Select all
       if ((event.ctrlKey || event.metaKey) && event.key === 'a') {
         event.preventDefault();
@@ -192,6 +340,13 @@ export default function SharedGalleryPage() {
         return;
       }
 
+      // Delete or Backspace - Bulk delete (owner only)
+      if (gallery?.isOwner && (event.key === 'Delete' || event.key === 'Backspace')) {
+        event.preventDefault();
+        handleBulkDelete();
+        return;
+      }
+
       // Escape - Exit selection mode
       if (event.key === 'Escape') {
         event.preventDefault();
@@ -205,7 +360,7 @@ export default function SharedGalleryPage() {
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [selectionMode, selectedImageIds, gallery, handleBulkExport]);
+  }, [selectedImageId, selectionMode, selectedImageIds, gallery, handleBulkExport, handleBulkDelete, handleIndividualDelete]);
 
   if (loading) {
     return (
@@ -252,11 +407,31 @@ export default function SharedGalleryPage() {
   return (
     <div className="bg-background min-h-screen">
       <header className="sticky top-0 z-10 flex h-14 sm:h-16 shrink-0 items-center gap-2 sm:gap-4 border-b bg-background/80 backdrop-blur-sm px-2 sm:px-4 md:px-6">
+        {/* Back Button */}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleBackButton}
+          className="gap-2 text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          <span className="hidden sm:inline">
+            {session ? 'Home' : 'Sign In'}
+          </span>
+        </Button>
+        
         <div className="flex items-center gap-2 flex-1 min-w-0">
           <GalleryHorizontal className="h-5 w-5 sm:h-6 sm:w-6 text-primary flex-shrink-0" />
-          <h1 className="text-lg sm:text-xl md:text-2xl font-headline font-semibold tracking-tight truncate">
-            {gallery.title}
-          </h1>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-lg sm:text-xl md:text-2xl font-headline font-semibold tracking-tight truncate">
+              {gallery.title}
+            </h1>
+            {gallery.isOwner && (
+              <p className="text-xs sm:text-sm text-muted-foreground">
+                Your shared gallery
+              </p>
+            )}
+          </div>
         </div>
         
         {/* Mobile Menu */}
@@ -281,10 +456,18 @@ export default function SharedGalleryPage() {
                 </DropdownMenuItem>
               )}
               {selectionMode && selectedImageIds.size > 0 && (
-                <DropdownMenuItem onClick={handleBulkExport}>
-                  <DownloadIcon className="mr-2 h-4 w-4" />
-                  Export ({selectedImageIds.size})
-                </DropdownMenuItem>
+                <>
+                  <DropdownMenuItem onClick={handleBulkExport}>
+                    <DownloadIcon className="mr-2 h-4 w-4" />
+                    Export ({selectedImageIds.size})
+                  </DropdownMenuItem>
+                  {gallery.isOwner && (
+                    <DropdownMenuItem onClick={handleBulkDelete}>
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Delete ({selectedImageIds.size})
+                    </DropdownMenuItem>
+                  )}
+                </>
               )}
             </DropdownMenuContent>
           </DropdownMenu>
@@ -299,14 +482,27 @@ export default function SharedGalleryPage() {
                   {selectedImageIds.size} selected
                 </span>
                 {selectedImageIds.size > 0 && (
-                  <Button
-                    size="sm"
-                    onClick={handleBulkExport}
-                    className="gap-2"
-                  >
-                    <DownloadIcon className="h-4 w-4" />
-                    Export ({selectedImageIds.size})
-                  </Button>
+                  <>
+                    <Button
+                      size="sm"
+                      onClick={handleBulkExport}
+                      className="gap-2"
+                    >
+                      <DownloadIcon className="h-4 w-4" />
+                      Export ({selectedImageIds.size})
+                    </Button>
+                    {gallery.isOwner && (
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={handleBulkDelete}
+                        className="gap-2"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Delete ({selectedImageIds.size})
+                      </Button>
+                    )}
+                  </>
                 )}
                 {gallery.images.length > 0 && (
                   <Button
@@ -318,6 +514,17 @@ export default function SharedGalleryPage() {
                   </Button>
                 )}
               </>
+            )}
+            {gallery.isOwner && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setIsAddImagesDialogOpen(true)}
+                className="gap-2"
+              >
+                <Plus className="h-4 w-4" />
+                Add Images
+              </Button>
             )}
             <Button
               size="sm"
@@ -379,10 +586,18 @@ export default function SharedGalleryPage() {
                 {selectedImageIds.size} of {gallery.images.length} selected
               </span>
               {selectedImageIds.size > 0 && (
-                <Button size="sm" onClick={handleBulkExport} className="gap-2">
-                  <DownloadIcon className="h-4 w-4" />
-                  Export
-                </Button>
+                <div className="flex gap-2">
+                  <Button size="sm" onClick={handleBulkExport} className="gap-2">
+                    <DownloadIcon className="h-4 w-4" />
+                    Export
+                  </Button>
+                  {gallery.isOwner && (
+                    <Button size="sm" variant="destructive" onClick={handleBulkDelete} className="gap-2">
+                      <Trash2 className="h-4 w-4" />
+                      Delete
+                    </Button>
+                  )}
+                </div>
               )}
             </div>
           )}
@@ -390,65 +605,37 @@ export default function SharedGalleryPage() {
 
         {/* Image Grid */}
         <div className="columns-1 sm:columns-2 md:columns-3 lg:columns-4 xl:columns-5 gap-2 sm:gap-4">
-          {gallery.images.map((image, _index) => (
+          {gallery.images.map((image, index) => (
             <div key={image.id} className="break-inside-avoid mb-2 sm:mb-4">
               <Card 
-                className={`overflow-hidden group cursor-pointer transition-all duration-200 ${
+                className={`overflow-hidden cursor-pointer group transition-all duration-300 hover:shadow-xl hover:shadow-primary/20 border-2 ${
                   selectionMode && selectedImageIds.has(image.id) 
-                    ? 'ring-2 ring-primary ring-offset-2 scale-[0.98]' 
-                    : selectionMode 
-                      ? 'hover:ring-2 hover:ring-muted-foreground/50 hover:ring-offset-1' 
-                      : ''
+                    ? 'border-primary' 
+                    : 'border-transparent'
                 }`}
-                onClick={() => selectionMode && handleImageSelection(image.id)}
+                onClick={() => handleImageClick(image.id, index)}
               >
-                <CardContent className="p-0 relative">
-                  {/* Selection checkbox */}
-                  {selectionMode && (
-                    <div className="absolute top-1 left-1 sm:top-2 sm:left-2 z-10">
-                      <Checkbox
-                        checked={selectedImageIds.has(image.id)}
-                        onCheckedChange={() => handleImageSelection(image.id)}
-                        className="bg-white/90 border-white/90 h-4 w-4 sm:h-5 sm:w-5"
-                      />
-                    </div>
-                  )}
-                  
-                  <Image
-                    src={image.dataUri}
-                    alt={image.name}
-                    width={500}
-                    height={500}
-                    className={`w-full h-auto object-cover transition-all duration-200 ${
-                      selectionMode && selectedImageIds.has(image.id) 
-                        ? 'brightness-75' 
-                        : ''
-                    }`}
-                  />
-                  
-                  {/* Overlay with actions - only show when not in selection mode */}
-                  {!selectionMode && (
-                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-200 flex items-center justify-center opacity-0 group-hover:opacity-100">
-                      <div className="flex gap-1 sm:gap-2">
-                        <Button
-                          size={isMobile ? "sm" : "sm"}
-                          variant="secondary"
-                          onClick={() => openOriginal(image.dataUri)}
-                          className="bg-white/90 hover:bg-white text-black p-2"
-                        >
-                          <ExternalLink className="h-3 w-3 sm:h-4 sm:w-4" />
-                        </Button>
-                        <Button
-                          size={isMobile ? "sm" : "sm"}
-                          variant="secondary"
-                          onClick={() => downloadImage(image.dataUri, image.name)}
-                          className="bg-white/90 hover:bg-white text-black p-2"
-                        >
-                          <Download className="h-3 w-3 sm:h-4 sm:w-4" />
-                        </Button>
+                <CardContent className="p-0 relative overflow-hidden">
+                  <div className="relative transition-transform duration-300 group-hover:scale-105">
+                    <Image
+                      src={image.dataUri}
+                      alt={image.name}
+                      width={500}
+                      height={500}
+                      className="w-full h-auto object-cover"
+                    />
+                    {selectionMode && (
+                      <div className={cn(
+                        "absolute inset-0 bg-black/70 flex flex-col items-center justify-center text-white p-2 text-center",
+                        !selectedImageIds.has(image.id) && "bg-black/40",
+                        selectedImageIds.has(image.id) && "bg-primary/40",
+                      )}>
+                        {selectedImageIds.has(image.id) && (
+                          <CheckCircle2 className="h-8 w-8 sm:h-10 sm:w-10 text-white" />
+                        )}
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </CardContent>
                 <div className="p-2 sm:p-3">
                   <p className="text-xs sm:text-sm font-medium truncate">{image.name}</p>
@@ -467,6 +654,23 @@ export default function SharedGalleryPage() {
         )}
       </main>
       
+      {/* Shared Image Detail Dialog */}
+      {selectedImageId && gallery?.images && (
+        <SharedImageDetail
+          image={gallery.images.find(img => img.id === selectedImageId)!}
+          allImages={gallery.images}
+          onOpenChange={handleCloseDetailView}
+          onNavigateToImage={handleNavigateToImage}
+          onDeleteImage={gallery.isOwner ? (imageId: string) => {
+            const image = gallery.images.find(img => img.id === imageId);
+            if (image) {
+              handleIndividualDelete(imageId, image.name);
+            }
+          } : undefined}
+          isOwner={gallery.isOwner}
+        />
+      )}
+      
       {/* Bulk Export Dialog */}
       <BulkExportDialog
         isOpen={isBulkExportDialogOpen}
@@ -475,6 +679,27 @@ export default function SharedGalleryPage() {
         isComplete={isExportComplete}
         imageCount={selectedImageIds.size}
       />
+
+      {/* Bulk Delete Dialog (Owner Only) */}
+      {gallery?.isOwner && (
+        <BulkDeleteDialog
+          isOpen={isBulkDeleteDialogOpen}
+          onOpenChange={setIsBulkDeleteDialogOpen}
+          imageCount={selectedImageIds.size}
+          onConfirm={confirmBulkDelete}
+        />
+      )}
+
+      {/* Add Images Dialog (Owner Only) */}
+      {gallery?.isOwner && (
+        <AddImagesToGalleryDialog
+          isOpen={isAddImagesDialogOpen}
+          onOpenChange={setIsAddImagesDialogOpen}
+          galleryId={shareId}
+          galleryTitle={gallery.title}
+          onImagesAdded={loadGallery}
+        />
+      )}
     </div>
   );
 }

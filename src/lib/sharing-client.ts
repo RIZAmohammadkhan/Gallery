@@ -7,10 +7,16 @@ export interface SharedGallery {
     id: string;
     name: string;
     dataUri: string;
+    metadata?: string;
+    tags?: string[];
+    isDefective?: boolean;
+    defectType?: string;
   }>;
   createdAt: Date;
   expiresAt?: Date;
   accessCount: number;
+  ownerId?: string;
+  isOwner?: boolean;
 }
 
 export function generateShareId(): string {
